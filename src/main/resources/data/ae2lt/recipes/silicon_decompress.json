@@ -1,0 +1,22 @@
+{
+  "conditions": [
+    {
+      "type": "forge:not",
+      "value": {
+        "type": "forge:mod_loaded",
+        "modid": "expatternprovider"
+      }
+    }
+  ],
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "ae2lt:silicon_block"
+    }
+  ],
+  "result": {
+    "count": 9,
+    "item": "ae2:silicon"
+  }
+}

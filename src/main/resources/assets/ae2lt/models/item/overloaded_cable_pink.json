@@ -1,0 +1,6 @@
+{
+  "parent": "ae2lt:item/covered_dense_cable_base",
+  "textures": {
+    "base": "ae2lt:part/cable/overload/pink"
+  }
+}

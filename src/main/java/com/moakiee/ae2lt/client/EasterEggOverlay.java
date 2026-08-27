@@ -1,0 +1,83 @@
+package com.moakiee.ae2lt.client;
+
+import com.moakiee.ae2lt.AE2LightningTech;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.client.gui.overlay.ForgeGui;
+import net.minecraftforge.client.gui.overlay.IGuiOverlay;
+
+public final class EasterEggOverlay implements IGuiOverlay {
+    public static final EasterEggOverlay INSTANCE = new EasterEggOverlay();
+
+    private static final ResourceLocation TEXTURE =
+            new ResourceLocation(AE2LightningTech.MODID, "textures/gui/easter_egg.png");
+
+    private static final int DISPLAY_TICKS = 40;
+
+    private static int ticksRemaining = 0;
+
+    private EasterEggOverlay() {
+    }
+
+    public static void trigger() {
+        ticksRemaining = DISPLAY_TICKS;
+    }
+
+    public static boolean isActive() {
+        return ticksRemaining > 0;
+    }
+
+    public static void tick() {
+        if (ticksRemaining > 0) {
+            ticksRemaining--;
+        }
+    }
+
+    /**
+     * Force-clears the overlay state. Called on logout / world unload so the
+     * easter-egg image cannot bleed into the next session (and so the static
+     * tick counter does not retain references that survive the logical client).
+     */
+    public static void reset() {
+        ticksRemaining = 0;
+    }
+
+    // 1.20.1 IGuiOverlay passes a GuiGraphics (GuiComponent was removed); alpha is applied via setColor.
+    @Override
+    public void render(
+            ForgeGui gui,
+            GuiGraphics guiGraphics,
+            float partialTick,
+            int screenWidth,
+            int screenHeight) {
+        if (ticksRemaining <= 0) {
+            return;
+        }
+
+        int imgWidth = 512;
+        int imgHeight = 436;
+        float aspect = (float) imgWidth / imgHeight;
+
+        int maxW = screenWidth * 3 / 4;
+        int maxH = screenHeight * 3 / 4;
+        int drawW, drawH;
+        if ((float) maxW / maxH > aspect) {
+            drawH = maxH;
+            drawW = (int) (maxH * aspect);
+        } else {
+            drawW = maxW;
+            drawH = (int) (maxW / aspect);
+        }
+        int x = (screenWidth - drawW) / 2;
+        int y = (screenHeight - drawH) / 2;
+
+        // Fade out over the last 10 ticks.
+        float alpha = Math.min(1.0F, ticksRemaining / 10.0F);
+
+        guiGraphics.pose().pushPose();
+        guiGraphics.setColor(1.0f, 1.0f, 1.0f, alpha);
+        guiGraphics.blit(TEXTURE, x, y, drawW, drawH, 0, 0, imgWidth, imgHeight, imgWidth, imgHeight);
+        guiGraphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
+        guiGraphics.pose().popPose();
+    }
+}

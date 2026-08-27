@@ -1,0 +1,170 @@
+package com.moakiee.ae2lt.item;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.jetbrains.annotations.Nullable;
+
+import com.moakiee.ae2lt.logic.research.ResearchNoteData;
+import com.moakiee.ae2lt.logic.research.ResearchNoteGenerator;
+
+import net.minecraft.ChatFormatting;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.protocol.game.ClientboundOpenBookPacket;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.stats.Stats;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.WrittenBookItem;
+import net.minecraft.world.level.Level;
+
+public class ResearchNoteItem extends AE2LTItem {
+    private static final String[] ORDER_MARKERS = {"1", "2", "3", "4", "5", "6", "7", "8", "9"};
+    private static final String BOOK_TITLE_KEY = "ae2lt.research_note.book.title";
+    private static final String BOOK_AUTHOR_KEY = "ae2lt.research_note.book.author";
+
+    public ResearchNoteItem(Properties properties) {
+        super(properties.stacksTo(16));
+    }
+
+    @Override
+    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+        ItemStack heldStack = player.getItemInHand(hand);
+        ResearchNoteData data = ResearchNoteData.read(heldStack);
+
+        if (level.isClientSide()) {
+            return InteractionResultHolder.sidedSuccess(heldStack, true);
+        }
+
+        if (data == null) {
+            // 空白笔记:只负责"消耗 1 张、产出 1 张已生成笔记",不打开书。
+            // 避免整叠处理带来的 merge/复制问题,也让玩家单独右键新笔记再查看。
+            if (!ResearchNoteGenerator.hasValidPool()) {
+                player.displayClientMessage(Component.translatable("ae2lt.research_note.error.invalid_pool")
+                        .withStyle(ChatFormatting.RED), true);
+                return InteractionResultHolder.fail(heldStack);
+            }
+
+            ResearchNoteData generated = ResearchNoteGenerator.generate((ServerLevel) level);
+            ItemStack generatedStack = new ItemStack(this);
+            applyGeneratedState(generatedStack, generated);
+
+            heldStack.shrink(1);
+            if (!player.addItem(generatedStack)) {
+                player.drop(generatedStack, false);
+            }
+            player.awardStat(Stats.ITEM_USED.get(this));
+            return InteractionResultHolder.sidedSuccess(player.getItemInHand(hand), false);
+        }
+
+        // 已生成笔记:直接打开书,不动堆叠(生成笔记因组件差异天然不可堆叠;
+        // 即便被强行堆,也不在此处处理)。
+        applyGeneratedState(heldStack, data);
+
+        // ServerPlayer#openItemGui 只认 vanilla Items.WRITTEN_BOOK，直接拿我们的自定义
+        // 物品去走那条分支会提前 return。所以这里手动走一遍官方链路：先 resolve 书页
+        // 里的动态组件（实体选择器之类），再把 ClientboundOpenBookPacket 直接发给客户端。
+        // 客户端随后会基于当前手持物上的 written-book NBT 打开阅读界面。
+        if (player instanceof ServerPlayer serverPlayer) {
+            WrittenBookItem.resolveBookComponents(heldStack, serverPlayer.createCommandSourceStack(), serverPlayer);
+            serverPlayer.connection.send(new ClientboundOpenBookPacket(hand));
+        }
+        player.awardStat(Stats.ITEM_USED.get(this));
+        return InteractionResultHolder.sidedSuccess(heldStack, false);
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltipComponents,
+            TooltipFlag tooltipFlag) {
+        ResearchNoteData data = ResearchNoteData.read(stack);
+        if (data == null) {
+            tooltipComponents.add(Component.translatable("ae2lt.research_note.tooltip.blank")
+                    .withStyle(ChatFormatting.GRAY));
+            tooltipComponents.add(Component.translatable("ae2lt.research_note.tooltip.open_hint")
+                    .withStyle(ChatFormatting.DARK_GRAY));
+            return;
+        }
+
+        tooltipComponents.add(Component.translatable("ae2lt.research_note.tooltip.goal", data.goal().getDisplayName())
+                .withStyle(ChatFormatting.GOLD));
+        tooltipComponents.add(Component.translatable(
+                data.consumed() ? "ae2lt.research_note.tooltip.completed" : "ae2lt.research_note.tooltip.generated")
+                .withStyle(data.consumed() ? ChatFormatting.RED : ChatFormatting.GRAY));
+    }
+
+    public static boolean isUsableGeneratedNote(ItemStack stack) {
+        return stack.getItem() instanceof ResearchNoteItem && isGenerated(stack) && !ResearchNoteData.isConsumed(stack);
+    }
+
+    public static boolean isGenerated(ItemStack stack) {
+        return ResearchNoteData.read(stack) != null;
+    }
+
+    public static @Nullable ResearchNoteData getData(ItemStack stack) {
+        return ResearchNoteData.read(stack);
+    }
+
+    public static void applyGeneratedState(ItemStack stack, ResearchNoteData data) {
+        data.writeTo(stack);
+        var tag = stack.getOrCreateTag();
+        tag.putString(WrittenBookItem.TAG_TITLE, Component.translatable(BOOK_TITLE_KEY, data.shortCode()).getString());
+        tag.putString(WrittenBookItem.TAG_AUTHOR, Component.translatable(BOOK_AUTHOR_KEY).getString());
+        tag.putInt(WrittenBookItem.TAG_GENERATION, 0);
+        tag.putBoolean(WrittenBookItem.TAG_RESOLVED, true);
+        tag.put(WrittenBookItem.TAG_PAGES, createBookPages(data));
+    }
+
+    private static ListTag createBookPages(ResearchNoteData data) {
+        var pages = new ListTag();
+        for (var page : buildPages(data)) {
+            pages.add(StringTag.valueOf(Component.Serializer.toJson(page)));
+        }
+        return pages;
+    }
+
+    private static List<Component> buildPages(ResearchNoteData data) {
+        List<Component> pages = new ArrayList<>(5);
+        pages.add(buildCoverPage(data));
+        pages.add(Component.translatable("ae2lt.research_note.page.intro", data.goal().getDisplayName()));
+        pages.add(buildRecipePage(data, 0, 5));
+        pages.add(buildRecipePage(data, 5, 9));
+        MutableComponent warningPage = Component.empty()
+                .append(Component.translatable("ae2lt.research_note.page.warning"));
+        if (data.consumed()) {
+            warningPage = warningPage.append(Component.literal("\n\n"))
+                    .append(Component.translatable("ae2lt.research_note.page.completed")
+                            .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+        }
+        pages.add(warningPage);
+        return pages;
+    }
+
+    private static Component buildCoverPage(ResearchNoteData data) {
+        return Component.translatable("ae2lt.research_note.page.cover", data.shortCode())
+                .append(Component.literal("\n"))
+                .append(Component.translatable("ae2lt.research_note.page.author"))
+                .append(Component.literal("\n"))
+                .append(Component.translatable("ae2lt.research_note.page.goal_line", data.goal().getDisplayName()));
+    }
+
+    private static MutableComponent buildRecipePage(ResearchNoteData data, int startInclusive, int endExclusive) {
+        MutableComponent page = Component.empty();
+        for (int i = startInclusive; i < Math.min(endExclusive, data.descriptionKeys().size()); i++) {
+            if (i > startInclusive) {
+                page = page.append(Component.literal("\n"));
+            }
+            page = page.append(Component.literal(ORDER_MARKERS[i] + ". "))
+                    .append(Component.translatable(data.descriptionKeys().get(i)));
+        }
+        return page;
+    }
+}
+

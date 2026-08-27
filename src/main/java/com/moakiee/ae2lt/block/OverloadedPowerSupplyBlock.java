@@ -1,0 +1,135 @@
+package com.moakiee.ae2lt.block;
+
+import java.util.EnumMap;
+import java.util.List;
+
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.DirectionProperty;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.level.storage.loot.LootParams;
+
+import appeng.api.orientation.IOrientationStrategy;
+import appeng.api.orientation.OrientationStrategies;
+import appeng.menu.locator.MenuLocators;
+import appeng.util.InteractionUtil;
+
+import com.moakiee.ae2lt.AE2LightningTech;
+import com.moakiee.ae2lt.blockentity.OverloadedPowerSupplyBlockEntity;
+
+public class OverloadedPowerSupplyBlock extends AE2LTBaseEntityBlock<OverloadedPowerSupplyBlockEntity> {
+
+    /**
+     * Block-state visualisation:
+     * <ul>
+     *   <li>{@code POWERED=false} → {@code overload_power_supply_off}</li>
+     *   <li>{@code POWERED=true, OVERLOADED=false} → {@code overload_power_supply_on}</li>
+     *   <li>{@code POWERED=true, OVERLOADED=true} → {@code overload_power_supply_on_overloaded}</li>
+     * </ul>
+     * The {@code (false, true)} combination is also mapped to the "off" model
+     * so that pre-selecting OVERLOAD mode without an active transfer does not
+     * leak the overloaded crystal texture.
+     */
+    public static final BooleanProperty POWERED = BooleanProperty.create("powered");
+    public static final BooleanProperty OVERLOADED = BooleanProperty.create("overloaded");
+    public static final DirectionProperty FACING = BlockStateProperties.FACING;
+    private static final ResourceLocation BLOCK_ITEM_DROP = new ResourceLocation(
+            AE2LightningTech.MODID, "overloaded_power_supply");
+
+    /**
+     * Tight collision/selection shape that follows the Blockbench model
+     * elements:
+     * <ul>
+     *   <li>底座圆台:{@code (2..14, 0..7, 2..14)}(略放大覆盖斜置散热鳍)</li>
+     *   <li>晶体支柱:{@code (6..10, 7..14, 6..10)}(含两道装饰环)</li>
+     *   <li>顶端尖塔:{@code (7..9, 10..16, 7..9)}</li>
+     * </ul>
+     * 三块取并集生成最终 shape,与默认满方块的碰撞盒区分开。
+     */
+    private static final VoxelShape UP_SHAPE = BlockShapeHelper.or(
+            Block.box(2, 0, 2, 14, 7, 14),
+            Block.box(6, 7, 6, 10, 14, 10),
+            Block.box(7, 10, 7, 9, 16, 9));
+    private static final EnumMap<Direction, VoxelShape> SHAPES =
+            BlockShapeHelper.createAllFacingShapes(UP_SHAPE);
+
+    public OverloadedPowerSupplyBlock() {
+        super(metalProps().noOcclusion().forceSolidOn());
+        registerDefaultState(defaultBlockState()
+                .setValue(POWERED, false)
+                .setValue(OVERLOADED, false)
+                .setValue(FACING, Direction.UP));
+    }
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        super.createBlockStateDefinition(builder);
+        builder.add(POWERED, OVERLOADED);
+    }
+
+    @Override
+    public IOrientationStrategy getOrientationStrategy() {
+        return OrientationStrategies.facing();
+    }
+
+    @Override
+    public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        return SHAPES.get(state.getValue(FACING));
+    }
+
+    @Override
+    public VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        return SHAPES.get(state.getValue(FACING));
+    }
+
+    @Override
+    public VoxelShape getOcclusionShape(BlockState state, BlockGetter level, BlockPos pos) {
+        return Shapes.empty();
+    }
+
+    @Override
+    public boolean propagatesSkylightDown(BlockState state, BlockGetter level, BlockPos pos) {
+        return true;
+    }
+
+    @Override
+    public List<ItemStack> getDrops(BlockState state, LootParams.Builder builder) {
+        // The block item only exists when AppFlux is loaded, so a normal minecraft:item entry
+        // would make this always-loaded loot table fail to deserialize in the no-AppFlux profile.
+        // A vanilla dynamic entry defers item creation until this registered block is actually
+        // broken while retaining explosion conditions, datapack overrides and Forge loot modifiers.
+        builder.withDynamicDrop(BLOCK_ITEM_DROP, output -> output.accept(new ItemStack(this)));
+        return super.getDrops(state, builder);
+    }
+
+    @Override
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
+                                               Player player, BlockHitResult hitResult) {
+        if (InteractionUtil.isInAlternateUseMode(player)) {
+            return InteractionResult.PASS;
+        }
+
+        var be = this.getBlockEntity(level, pos);
+        if (be != null) {
+            if (!level.isClientSide()) {
+                be.openMenu(player, MenuLocators.forBlockEntity(be));
+            }
+            return InteractionResult.sidedSuccess(level.isClientSide());
+        }
+        return InteractionResult.PASS;
+    }
+}
