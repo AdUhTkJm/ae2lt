@@ -1,0 +1,61 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.moakiee.ae2lt.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "ServerLevelMixin",
+    "AEBaseMenuManagedSlotClickMixin",
+    "AnnihilationPlaneFirmamentDustMixin",
+    "PatternProviderLogicAccessor",
+    "PatternProviderLogicMixin",
+    "EntityUndyingMixin",
+    "LivingEntityUndyingMixin",
+    "LivingEntityShieldHitFeedbackMixin",
+    "LivingEntityPhaseJumpMixin",
+    "ServerCommonPacketListenerUndyingMixin",
+    "ServerPlayerUndyingMixin",
+    "ServerPlayerPhaseMovementMixin",
+    "EntityPhaseMovementMixin",
+    "CommandsPhaseTeleportMixin",
+    "PlayerMayFlyMixin",
+    "PlayerPhaseFlightMixin",
+    "BlockItemPhasePlacementMixin",
+    "ServerGamePacketListenerPhaseMovementMixin",
+    "MainThreadPayloadHandlerPhaseTeleportMixin",
+    "ServerGamePacketListenerCelestweaveCreativeSyncMixin",
+    "thunderbolt.accessor.ElapsedTimeTrackerAccessor",
+    "thunderbolt.accessor.ExecutingCraftingJobAccessor",
+    "thunderbolt.accessor.CraftingCpuLogicAccessor",
+    "thunderbolt.accessor.AdvCraftingCpuAccessor",
+    "thunderbolt.accessor.ECOCraftingCpuAccessor",
+    "thunderbolt.TimeWheelCraftingCPUMenuMixin",
+    "thunderbolt.CraftingCpuLogicMixin",
+    "thunderbolt.AdvCraftingCpuLogicMixin",
+    "thunderbolt.ECOCraftingCpuLogicMixin",
+    "ControllerValidatorMixin",
+    "ShulkerBulletMixin"
+  ],
+  "client": [
+    "client.CableBusRenderStateMixin",
+    "client.CableBusContainerRenderMixin",
+    "client.CableBusBakedModelMixin",
+    "client.SettingToggleButtonMixin",
+    "client.PatternProviderScreenAccessor",
+    "client.RailgunHumanoidModelMixin",
+    "client.AEBaseScreenAccessor",
+    "client.VerticalButtonBarAccessor",
+    "client.AEBaseScreenFrequencyTerminalButtonMixin",
+    "client.ClientPacketListenerShieldHitFeedbackMixin",
+    "client.LocalPlayerShieldHitFeedbackMixin",
+    "client.LocalPlayerPhaseMovementMixin",
+    "client.LevelRendererPhaseFlightMixin",
+    "client.EntityShieldFireVisualMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}

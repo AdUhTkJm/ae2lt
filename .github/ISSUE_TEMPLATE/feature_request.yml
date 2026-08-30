@@ -1,0 +1,103 @@
+name: 功能建议 (Feature request)
+description: 提出新功能、平衡调整、体验改进或联动想法。Suggest a new feature, balance change, UX improvement, or integration idea.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请先搜索已有 Issues，确认类似建议没有被提出过。一个 Issue 只写一个独立建议。
+
+        Please search existing issues first. Keep each issue focused on one independent suggestion.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: 提交前确认 (Preflight checklist)
+      options:
+        - label: 我已经搜索过现有 Issues，没有找到重复建议。 / I have searched existing issues and did not find a duplicate request.
+          required: true
+        - label: 这个建议与 AE2 Lightning Tech 的玩法、联动或 API 有直接关系。 / This request is directly related to AE2 Lightning Tech gameplay, integrations, or API.
+          required: true
+
+  - type: textarea
+    id: feature
+    attributes:
+      label: 建议内容 (Requested feature or change)
+      description: 说明你希望新增或改变什么。 / Describe what should be added or changed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: 使用场景与理由 (Use case and reason)
+      description: 说明这个建议解决什么问题、改善什么流程，或为什么适合本模组。 / Explain what problem this solves, what workflow it improves, or why it fits this mod.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: target-environment
+    attributes:
+      label: 目标环境 (Target environment)
+      description: 请选择建议适用的版本；若不依赖版本请选择全部支持版本。 / Select the version this request targets, or all supported versions if it is version-independent.
+      options:
+        - 全部支持版本 / All supported versions
+        - Minecraft 1.21.1 / NeoForge
+        - Minecraft 1.20.1 / Forge
+        - 其他 / Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: affected-area
+    attributes:
+      label: 相关模块 (Affected area)
+      description: 请选择建议最主要涉及的模块。 / Select the area most directly related to the request.
+      options:
+        - 安装、启动、配置或更新 / Installation, startup, configuration, or updating
+        - 闪电收集与存储 / Lightning collection and storage
+        - 加工机器 / Processing machines
+        - 材料与物品、配方或世界生成 / Materials and items, recipes, or world generation
+        - 过载网络（控制器、线缆、接口等） / Overloaded network (controller, cables, interfaces, etc.)
+        - 无线网络与过载频率卡 / Wireless network and Overloaded Frequency Card
+        - 样板编码器、样板供应器与自动合成 / Pattern encoders, pattern providers, and autocrafting
+        - 天枢超算阵列与闭环合成 / Tianshu Supercomputing Array and closed-loop crafting
+        - 天枢物质扭曲矩阵 / Tianshu Matter Warping Matrix
+        - 过载设备（苍穹织雷、电磁炮与模块） / Overload devices (Celestweave, electromagnetic railgun, and modules)
+        - 猪咪科技（猪咪、口算单元与存储） / Pigmee tech (Pigmee, Mentalmath Unit, and storage)
+        - 界面、渲染或音效 / UI, rendering, or audio
+        - 指南书或翻译 / Guidebook or translation
+        - 模组联动或 Addon API / Mod integration or Addon API
+        - 其他 / Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: balance
+    attributes:
+      label: 平衡性或进度影响 (Balance or progression impact)
+      description: |
+        说明这个建议是否会影响资源消耗、产线速度、ME 网络吞吐、无线路由、自动化难度或游戏阶段。
+
+        Explain whether this affects resource cost, processing speed, ME network throughput, wireless routing, automation difficulty, or progression stage.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 替代方案，可选 (Alternatives, optional)
+      description: 如果你考虑过其他实现方式或现有替代玩法，请写在这里。 / If you considered other implementations or existing workarounds, describe them here.
+
+  - type: textarea
+    id: references
+    attributes:
+      label: 参考资料，可选 (References, optional)
+      description: 可以附截图、草图、其他模组链接、配方示例或 API 使用场景。 / Add screenshots, mockups, related mod links, recipe examples, or API use cases.
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 其他信息，可选 (Additional context, optional)
+      description: 任何无法归入上面字段的补充信息。 / Any extra details that do not fit elsewhere.
