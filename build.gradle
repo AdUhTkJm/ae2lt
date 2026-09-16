@@ -17,24 +17,11 @@ if (releaseTag) {
 def resolvedProjectVersion = project.version.toString()
 group = mod_group_id
 
-def githubPackagesUser = System.getenv('GITHUB_ACTOR') ?: project.findProperty('gpr.user')
-def githubPackagesToken = System.getenv('GITHUB_PACKAGES_TOKEN') ?: System.getenv('GITHUB_TOKEN') ?: project.findProperty('gpr.key')
-
 repositories {
+    // Thunderbolt core is reassembled as a subproject of AE2LT.
+    // No need for a separate maven repository.
+
     mavenLocal()
-    if (githubPackagesUser && githubPackagesToken) {
-        maven {
-            name = 'ThunderboltGitHubPackages'
-            url = uri('https://maven.pkg.github.com/ae2lt/Thunderbolt-Core')
-            credentials {
-                username = githubPackagesUser
-                password = githubPackagesToken
-            }
-            content {
-                includeGroup 'com.moakiee.thunderbolt'
-            }
-        }
-    }
     mavenCentral()
     maven {
         name = "Sleeping Town"

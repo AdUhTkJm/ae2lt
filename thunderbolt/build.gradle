@@ -41,22 +41,32 @@ neoForge {
     version = project.neo_version
 
     // Mixins on NeoForge 1.20.2+ need no refmap (runtime uses official mappings).
-    runs {
-        client {
-            client()
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
-        }
-        server {
-            server()
-            programArgument '--nogui'
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
-        }
-        configureEach {
-            if (!thunderboltDevGameDirectory.isEmpty()) {
-                gameDirectory = project.file(thunderboltDevGameDirectory)
+    //
+    // These dev runs are registered ONLY when Thunderbolt is built standalone (its own
+    // settings.gradle, where this project is the root project). When it is included as a
+    // subproject of AE2LT, the parent project already declares runs with the same names, and
+    // Gradle runs a task by name in EVERY project that has it — so `./gradlew runClient`
+    // started two game clients. The Thunderbolt one is also unusable in that context: AE2 is
+    // `compileOnly` here (unless -PthunderboltEnableAe2DevRuntime=true) and this layer patches
+    // AE2 through mixins, so that second client aborted with "AE2 is not loaded".
+    if (project.parent == null) {
+        runs {
+            client {
+                client()
+                systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
             }
-            systemProperty 'forge.logging.markers', 'REGISTRIES'
-            logLevel = org.slf4j.event.Level.DEBUG
+            server {
+                server()
+                programArgument '--nogui'
+                systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            }
+            configureEach {
+                if (!thunderboltDevGameDirectory.isEmpty()) {
+                    gameDirectory = project.file(thunderboltDevGameDirectory)
+                }
+                systemProperty 'forge.logging.markers', 'REGISTRIES'
+                logLevel = org.slf4j.event.Level.DEBUG
+            }
         }
     }
 
