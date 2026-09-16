@@ -258,8 +258,9 @@ dependencies {
     compileOnly("org.anti_ad.mc:InventoryProfilesNext-neoforge-1.21.1:${ipn_version}") {
         transitive = false
     }
-    compileOnly "curse.maven:jei-238222:7391682"
-    runtimeOnly "curse.maven:jei-238222:7391682"
+    // Bump JEI version to be compatible with Data Energistics.
+    compileOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
+    runtimeOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
     // Optional Polymorphic Energistics integration. Only the Polymorph client API is needed at
     // compile time; the compatibility bootstrap never loads API-backed classes unless both mods
     // are installed by the modpack.
