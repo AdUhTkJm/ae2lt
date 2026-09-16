@@ -227,7 +227,7 @@ sourceSets.test.runtimeClasspath += sourceSets.main.runtimeClasspath
 // published artifacts never depend on machine-local modpack paths.
 def jdbProbeModPaths = providers.gradleProperty('ae2ltJdbProbeMods')
         .getOrElse('')
-        .split(java.io.File.pathSeparator)
+        .split(File.pathSeparator)
         .findAll { !it.isBlank() }
 def enableVeilDevRuntime = providers.gradleProperty('ae2ltEnableVeilDevRuntime')
         .getOrElse('false')
@@ -237,9 +237,9 @@ dependencies {
     // Thunderbolt Core — the extracted AE2 infrastructure layer (fast crafting planner,
     // channel/batch/cell/matrix algorithms). Provided at runtime as a separate mod jar in the modpack,
     // so compileOnly here. Published to mavenLocal via `./gradlew publishToMavenLocal` in Thunderbolt Core.
-    compileOnly "com.moakiee.thunderbolt:thunderbolt:${thunderbolt_version}"
-    runtimeOnly "com.moakiee.thunderbolt:thunderbolt:${thunderbolt_version}"
-    testRuntimeOnly "com.moakiee.thunderbolt:thunderbolt:${thunderbolt_version}"
+    compileOnly project(':thunderbolt')
+    runtimeOnly project(':thunderbolt')
+    testRuntimeOnly project(':thunderbolt')
     jdbProbeModPaths.each { runtimeOnly files(it) }
 
     implementation "curse.maven:applied-energistics-2-223794:7027323"

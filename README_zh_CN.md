@@ -1,4 +1,4 @@
-# AE2 闪电科技
+# AE2 闪电科技：社区版
 
 [English](README.md)
 
@@ -74,5 +74,7 @@ AE2 闪电科技对源码和材质使用不同的许可证：
 ## 鸣谢
 
 由 **MOAKIEE**、**CystrySU**、**gjmhmm8**、**_leng**、**TedXenon**、**MHanHanBing** 开发。
+
+由社区开发者维护。
 
 特别感谢 Applied Energistics 2 团队 —— 没有 AE2 就没有这个附属。
