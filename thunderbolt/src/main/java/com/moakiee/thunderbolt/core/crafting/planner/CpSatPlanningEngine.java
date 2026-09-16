@@ -1,0 +1,132 @@
+package com.moakiee.thunderbolt.core.crafting.planner;
+
+import java.nio.file.Path;
+import java.util.IdentityHashMap;
+import java.util.Map;
+
+import appeng.api.networking.IGrid;
+import appeng.api.networking.crafting.ICraftingPlan;
+import appeng.api.stacks.AEKey;
+import appeng.crafting.CraftingPlan;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import org.jetbrains.annotations.Nullable;
+
+import com.moakiee.thunderbolt.ThunderboltCore;
+import com.moakiee.thunderbolt.api.crafting.CraftingPlanningEngine;
+import com.moakiee.thunderbolt.api.crafting.PlanningAttempt;
+import com.moakiee.thunderbolt.api.crafting.PlanningAttemptContext;
+import com.moakiee.thunderbolt.api.crafting.PlanningDiagnosticSnapshot;
+import com.moakiee.thunderbolt.api.crafting.PlanningEngineSession;
+import com.moakiee.thunderbolt.api.crafting.PlanningExitException;
+import com.moakiee.thunderbolt.api.crafting.PlanningRequest;
+import com.moakiee.thunderbolt.core.crafting.pattern.CraftingStockPolicy;
+
+/** Independent full-graph OR-Tools CP-SAT planning engine. */
+public final class CpSatPlanningEngine implements CraftingPlanningEngine {
+    public static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath(
+            ThunderboltCore.MODID, "cp_sat");
+    public static final CpSatPlanningEngine INSTANCE = new CpSatPlanningEngine();
+
+    private CpSatPlanningEngine() {
+    }
+
+    /** Downloads (when absent), verifies, and loads the matching optional native runtime. */
+    public boolean initialize(Path cacheRoot) {
+        return CpSatIntegerLinearSolver.installRuntime(cacheRoot);
+    }
+
+    public boolean isAvailable() {
+        return CpSatIntegerLinearSolver.isAvailable();
+    }
+
+    @Nullable
+    public Throwable availabilityFailure() {
+        return CpSatIntegerLinearSolver.loadFailure();
+    }
+
+    @Override
+    public ResourceLocation id() {
+        return ID;
+    }
+
+    @Override
+    public Component getName() {
+        return Component.translatable("algorithm.thunderbolt.cp_sat");
+    }
+
+    @Override
+    public boolean check(IGrid grid, PlanningRequest request) {
+        return isAvailable()
+                && request.requestedAmount() > 0
+                && request.output() != null
+                && request.requester().getGridNode() != null
+                && request.requester().getGridNode().getGrid() == grid;
+    }
+
+    @Override
+    public PlanningEngineSession createSession(
+            PlanningRequest request,
+            @Nullable Object capturedInput,
+            PlanningAttemptContext context) {
+        return isAvailable() ? new Session(request) : null;
+    }
+
+    private static final class Session implements PlanningEngineSession {
+        private final PlanningRequest request;
+        private final FastCraftingPlanner.CalculationSession graphSession =
+                FastCraftingPlanner.CalculationSession.cpSat();
+        private final Map<CraftingPlan, Map<ReusableStockUsageKey<AEKey>, Long>> reusableStock =
+                new IdentityHashMap<>();
+
+        private Session(PlanningRequest request) {
+            this.request = request;
+        }
+
+        @Override
+        public PlanningAttempt attempt(
+                long amount, boolean simulate, PlanningAttemptContext context) {
+            final FastCraftingPlanner.FastAttempt result;
+            try {
+                context.checkpoint();
+                result = FastCraftingPlanner.tryAttempt(
+                        request.craftingService(), request.networkInventory(), request.level(),
+                        request.output(), amount, simulate,
+                        request.requester() instanceof CraftingStockPolicy policy ? policy : null,
+                        graphSession);
+            } catch (PlanningExitException exit) {
+                return PlanningAttempt.DECLINE;
+            }
+            if (!result.handled()) {
+                return PlanningAttempt.DECLINE;
+            }
+            if (result.plan() != null) {
+                reusableStock.put(result.plan(), result.usedReusableStock());
+            }
+            if (result.simulationFallback() != null) {
+                reusableStock.put(result.simulationFallback(), result.usedReusableStock());
+            }
+            return new PlanningAttempt(
+                    PlanningAttempt.Status.HANDLED,
+                    result.plan(),
+                    result.simulationFallback());
+        }
+
+        @Override
+        public ICraftingPlan finish(ICraftingPlan result, PlanningAttemptContext context) {
+            context.report(PlanningDiagnosticSnapshot.phase("finishing"));
+            if (result instanceof CraftingPlan craftingPlan) {
+                var used = reusableStock.get(craftingPlan);
+                if (used != null) {
+                    PlanningMetadataStore.record(craftingPlan, used);
+                }
+            }
+            return result;
+        }
+
+        @Override
+        public void close() {
+            reusableStock.clear();
+        }
+    }
+}

@@ -1,0 +1,210 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'net.neoforged.moddev' version '2.0.140'
+}
+
+def releaseTag = System.getenv('TAG')?.trim()
+if (releaseTag) {
+    if (!releaseTag.startsWith('v')) {
+        throw new GradleException("Release tags must start with v: ${releaseTag}")
+    }
+    version = releaseTag.substring(1)
+} else {
+    version = mod_version
+}
+def resolvedProjectVersion = project.version.toString()
+group = mod_group_id
+
+def githubPackagesUser = System.getenv('GITHUB_ACTOR') ?: project.findProperty('gpr.user')
+def githubPackagesToken = System.getenv('GITHUB_PACKAGES_TOKEN') ?: System.getenv('GITHUB_TOKEN') ?: project.findProperty('gpr.key')
+
+base {
+    archivesName = project.findProperty("artifact_name") ?: mod_id
+}
+
+tasks.register('printProjectVersion') {
+    group = 'help'
+    description = 'Prints the version used for this build.'
+    doLast {
+        println resolvedProjectVersion
+    }
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+def thunderboltDevGameDirectory = providers.gradleProperty('thunderboltDevGameDirectory')
+        .getOrElse('')
+        .trim()
+
+neoForge {
+    version = project.neo_version
+
+    // Mixins on NeoForge 1.20.2+ need no refmap (runtime uses official mappings).
+    runs {
+        client {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+        configureEach {
+            if (!thunderboltDevGameDirectory.isEmpty()) {
+                gameDirectory = project.file(thunderboltDevGameDirectory)
+            }
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.DEBUG
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    maven {
+        url = "https://www.cursemaven.com"
+        content {
+            includeGroup "curse.maven"
+        }
+    }
+}
+
+configurations {
+    cpSatEmbedded
+}
+
+def enableAe2DevRuntime = providers.gradleProperty('thunderboltEnableAe2DevRuntime')
+        .getOrElse('false')
+        .toBoolean()
+
+dependencies {
+    // CP-SAT is opt-in. Bundle only the small, platform-neutral Java API and protobuf runtime;
+    // the matching native runtime is downloaded and verified at game startup when enabled.
+    compileOnly "com.google.ortools:ortools-java:${ortools_version}"
+    cpSatEmbedded("com.google.ortools:ortools-java:${ortools_version}") {
+        transitive = false
+    }
+    cpSatEmbedded("com.google.protobuf:protobuf-java:4.33.1") {
+        transitive = false
+    }
+    testImplementation "com.google.ortools:ortools-java:${ortools_version}"
+
+    // AE2 — publicly available on CurseForge maven. compileOnly: this layer patches AE2 via
+    // mixins; AE2 is provided by the modpack at runtime. The pure planner core under
+    // `crafting.core` has NO AE2 dependency and is unit-tested standalone.
+    compileOnly "curse.maven:applied-energistics-2-223794:7027323"
+    if (enableAe2DevRuntime) {
+        runtimeOnly "curse.maven:applied-energistics-2-223794:7027323"
+        runtimeOnly "org.appliedenergistics:guideme:21.1.15"
+    }
+
+    // AdvancedAE (+ its compile-time companions) — the lib hosts the batch-CPU mixin/accessors that
+    // target AAE's crafting CPU. compileOnly: AAE is provided by the modpack at runtime when present;
+    // the @Pseudo mixins simply no-op if AAE is absent.
+    compileOnly "curse.maven:advancedae-1084104:7668664"
+    compileOnly "curse.maven:extendedae-892005:7727948"
+    compileOnly "curse.maven:glodium-957920:5821676"
+    compileOnly "curse.maven:applied-flux-965012:7429565"
+
+    // Unit tests for the pure planner core (no Minecraft/AE2 needed).
+    testImplementation platform("org.junit:junit-bom:5.10.2")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+    // AE2 API types exercised directly by unit tests (e.g. ByteTracker's AEKeyType);
+    // compileOnly deps are absent from the test runtime classpath otherwise.
+    testRuntimeOnly "curse.maven:applied-energistics-2-223794:7027323"
+}
+
+tasks.named('processResources') {
+    from(configurations.cpSatEmbedded) {
+        into 'META-INF/thunderbolt/cp-sat'
+    }
+}
+
+// Tests that exercise SavedData/codecs need the same generated Minecraft/NeoForge classes as main.
+sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
+sourceSets.test.runtimeClasspath += sourceSets.main.runtimeClasspath
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
+}
+
+tasks.register("referenceCapabilityTest", Test) {
+    description = "Runs the planner capability reference kit and prints its auditable result rows."
+    group = "verification"
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching "com.moakiee.thunderbolt.core.crafting.planner.reference.*"
+    }
+    testLogging {
+        events "passed", "skipped", "failed"
+        showStandardStreams = true
+    }
+}
+
+var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
+    var replaceProperties = [
+        minecraft_version      : minecraft_version,
+        minecraft_version_range: minecraft_version_range,
+        neo_version            : neo_version,
+        neo_version_range      : neo_version_range,
+        loader_version_range   : loader_version_range,
+        mod_id                 : mod_id,
+        mod_name               : mod_name,
+        mod_license            : mod_license,
+        mod_version            : project.version,
+        mod_authors            : mod_authors,
+        mod_description        : mod_description]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from "src/main/templates"
+    into "build/generated/sources/modMetadata"
+}
+
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+publishing {
+    publications {
+        register('mavenJava', MavenPublication) {
+            from components.java
+            artifactId = mod_id
+        }
+    }
+    repositories {
+        maven {
+            url = project.projectDir.toPath().resolve("repo").toUri()
+        }
+        if (githubPackagesUser && githubPackagesToken) {
+            maven {
+                name = 'GitHubPackages'
+                url = uri('https://maven.pkg.github.com/ae2lt/Thunderbolt-Core')
+                credentials {
+                    username = githubPackagesUser
+                    password = githubPackagesToken
+                }
+            }
+        }
+    }
+}
+
+if (plugins.hasPlugin('idea')) {
+    idea {
+        module {
+            downloadSources = true
+            downloadJavadoc = true
+        }
+    }
+}

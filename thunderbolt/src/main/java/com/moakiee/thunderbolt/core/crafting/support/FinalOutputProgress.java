@@ -1,0 +1,57 @@
+package com.moakiee.thunderbolt.core.crafting.support;
+
+/** Final-output accounting shared by AE2 crafting CPU integrations. */
+public final class FinalOutputProgress {
+    private FinalOutputProgress() {
+    }
+
+    public static long completedAmount(boolean standalone, long offered, long requesterAccepted) {
+        long boundedOffered = Math.max(0L, offered);
+        if (standalone) {
+            return boundedOffered;
+        }
+        return Math.min(boundedOffered, Math.max(0L, requesterAccepted));
+    }
+
+    /**
+     * Amount a requester job must retain in the CPU and retry later. Standalone jobs deliberately
+     * leave their unaccepted output in the current ME insertion chain instead.
+     */
+    public static long deferredRequesterAmount(
+            boolean standalone, long offered, long requesterAccepted) {
+        if (standalone) {
+            return 0L;
+        }
+        long boundedOffered = Math.max(0L, offered);
+        long boundedAccepted = Math.min(boundedOffered, Math.max(0L, requesterAccepted));
+        return boundedOffered - boundedAccepted;
+    }
+
+    /** Amount the current insertion chain must consider physically consumed. */
+    public static long physicallyAcceptedAmount(
+            long inventoryAccepted,
+            long completedRequesterAmount,
+            long requesterAccepted) {
+        long boundedInventory = Math.max(0L, inventoryAccepted);
+        long boundedRequester = Math.min(
+                Math.max(0L, completedRequesterAmount),
+                Math.max(0L, requesterAccepted));
+        return addSaturated(boundedInventory, boundedRequester);
+    }
+
+    /**
+     * Final output that can be recovered from a terminal CPU inventory without consuming reusable
+     * seeds or output that is still explicitly retained for loop acceleration.
+     */
+    public static long recoverableInventoryAmount(
+            long held, long reusableReserve, long retained, long remainingDemand) {
+        long protectedAmount = addSaturated(
+                Math.max(0L, reusableReserve), Math.max(0L, retained));
+        long unprotected = Math.max(0L, Math.max(0L, held) - protectedAmount);
+        return Math.min(unprotected, Math.max(0L, remainingDemand));
+    }
+
+    private static long addSaturated(long left, long right) {
+        return left > Long.MAX_VALUE - right ? Long.MAX_VALUE : left + right;
+    }
+}

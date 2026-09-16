@@ -1,0 +1,52 @@
+# Gradle
+.gradle/
+build/
+repo/
+
+# IDEs
+.idea/
+.eclipse/
+*.iml
+.classpath
+.project
+.settings/
+*.launch
+.vscode/
+out/
+
+# NeoForge run directories
+run/
+run2/
+runs/
+/logs/
+
+# Eclipse
+bin/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Mod development libs (put ae2lt.jar here, don't commit it)
+libs/*.jar
+
+# Local documentation drafts and one-off maintenance notes
+/BLOCKERS.md
+/PROJECT_FRAMEWORK_COMPARISON_zh_CN.md
+/*BLOCKER*.md
+/*BLOCKERS*.md
+/*TODO*.md
+/*PLAN*.md
+/*DRAFT*.md
+/*NOTES*.md
+/*COMPARISON*.md
+/docs-drafts/
+/release-assets/
+/readme-snapshots/
+/temp/
+/tmp/
+/decompiled/
+/unpacked/
+/*.local.md

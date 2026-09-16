@@ -1,0 +1,19 @@
+{
+  "gui.thunderbolt.algorithm_provider.title": "合成算法",
+  "gui.thunderbolt.algorithm_provider.algorithm": "当前选择的算法",
+  "gui.thunderbolt.algorithm_provider.previous": "切换到上一个算法",
+  "gui.thunderbolt.algorithm_provider.next": "切换到下一个算法",
+  "gui.thunderbolt.algorithm_provider.public": "公开算法：没有提供器时仍可使用",
+  "gui.thunderbolt.algorithm_provider.provider_required": "仅在此提供器在线时可使用",
+  "gui.thunderbolt.algorithm_provider.priority": "玩家优先级：%s",
+  "gui.thunderbolt.algorithm_provider.player_priority": "算法选择优先级：%s",
+  "gui.thunderbolt.algorithm_provider.selection_priority": "算法选择优先级",
+  "gui.thunderbolt.algorithm_provider.algorithm_priority": "算法声明优先级：%s",
+  "gui.thunderbolt.algorithm_provider.algorithm_priority.vanilla": "算法声明优先级：原版回退",
+  "gui.thunderbolt.algorithm_provider.algorithm_priority.unknown": "算法声明优先级：未知算法",
+  "algorithm.thunderbolt.ae2_vanilla": "AE2 原版规划器",
+  "algorithm.thunderbolt.v2": "雷电 V2 规划器",
+  "algorithm.thunderbolt.cp_sat": "雷电 CP-SAT 规划器（实验）",
+  "algorithm.thunderbolt.all_failed": "全部失败",
+  "gui.thunderbolt.crafting_plan.algorithm": "%1$s [%2$s]"
+}

@@ -1,0 +1,74 @@
+{
+  "$schema": "../schema.json",
+  "includes": ["../common/common.json"],
+  "generatedBackground": {
+    "width": 200,
+    "height": 106
+  },
+  "text": {
+    "dialog_title": {
+      "position": {
+        "left": 8,
+        "top": 6
+      }
+    },
+    "algorithm_label": {
+      "text": {
+        "translate": "gui.thunderbolt.algorithm_provider.algorithm"
+      },
+      "color": "MUTED_TEXT_COLOR",
+      "position": {
+        "left": 8,
+        "top": 23
+      }
+    },
+    "availability": {
+      "color": "MUTED_TEXT_COLOR",
+      "align": "CENTER",
+      "position": {
+        "left": 100,
+        "top": 63
+      }
+    },
+    "algorithm_priority": {
+      "align": "CENTER",
+      "position": {
+        "left": 100,
+        "top": 75
+      }
+    },
+    "player_priority": {
+      "align": "CENTER",
+      "position": {
+        "left": 100,
+        "top": 87
+      }
+    }
+  },
+  "widgets": {
+    "previousAlgorithm": {
+      "left": 8,
+      "top": 35,
+      "width": 20,
+      "height": 20
+    },
+    "nextAlgorithm": {
+      "left": 172,
+      "top": 35,
+      "width": 20,
+      "height": 20
+    },
+    "back": {
+      "left": 176,
+      "top": -5,
+      "width": 20,
+      "height": 20
+    },
+    "openPriority": {
+      "left": 154,
+      "top": -5,
+      "width": 20,
+      "height": 20
+    }
+  }
+}

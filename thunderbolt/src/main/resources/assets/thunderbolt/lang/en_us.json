@@ -1,0 +1,19 @@
+{
+  "gui.thunderbolt.algorithm_provider.title": "Crafting Algorithm",
+  "gui.thunderbolt.algorithm_provider.algorithm": "Selected algorithm",
+  "gui.thunderbolt.algorithm_provider.previous": "Switch to previous algorithm",
+  "gui.thunderbolt.algorithm_provider.next": "Switch to next algorithm",
+  "gui.thunderbolt.algorithm_provider.public": "Public: available without a provider",
+  "gui.thunderbolt.algorithm_provider.provider_required": "Available while this provider is online",
+  "gui.thunderbolt.algorithm_provider.priority": "Player priority: %s",
+  "gui.thunderbolt.algorithm_provider.player_priority": "Algorithm selection priority: %s",
+  "gui.thunderbolt.algorithm_provider.selection_priority": "Algorithm selection priority",
+  "gui.thunderbolt.algorithm_provider.algorithm_priority": "Declared algorithm priority: %s",
+  "gui.thunderbolt.algorithm_provider.algorithm_priority.vanilla": "Declared algorithm priority: vanilla fallback",
+  "gui.thunderbolt.algorithm_provider.algorithm_priority.unknown": "Declared algorithm priority: unknown algorithm",
+  "algorithm.thunderbolt.ae2_vanilla": "AE2 Native Planner",
+  "algorithm.thunderbolt.v2": "Thunderbolt V2 Planner",
+  "algorithm.thunderbolt.cp_sat": "Thunderbolt CP-SAT Planner (Experimental)",
+  "algorithm.thunderbolt.all_failed": "All Failed",
+  "gui.thunderbolt.crafting_plan.algorithm": "%1$s [%2$s]"
+}

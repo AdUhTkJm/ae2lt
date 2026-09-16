@@ -1,0 +1,44 @@
+{
+  "required": true,
+  "minVersion": "0.8.5",
+  "package": "com.moakiee.thunderbolt.mixin",
+  "plugin": "com.moakiee.thunderbolt.mixin.ThunderboltMixinConfigPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "ae2.crafting.CraftingCalculationMixin",
+    "ae2.crafting.CraftConfirmMenuMixin",
+    "ae2.crafting.Ae2CraftingTreeCompatibilityMixin",
+    "ae2.crafting.CraftingLinkNexusMixin",
+    "ae2.crafting.ExtendedCraftingCpuServiceMixin",
+    "ae2.crafting.CraftingServiceAccessor",
+    "ae2.key.AEFluidKeyComponentsMixin",
+    "ae2.key.AEItemKeyComponentsMixin",
+    "platform.eject.EjectCapabilityMixin",
+    "platform.eject.EjectGhostBlockEntityMixin",
+    "ae2.channel.GridConnectionMaxChannelsMixin",
+    "ae2.channel.GridGetMachineNodesMixin",
+    "ae2.channel.GridNodeMaxChannelsMixin",
+    "ae2.channel.PathingCalculationCapMixin",
+    "ae2.crafting.CraftingCpuLogicBatchMixin",
+    "compat.advancedae.AdvCraftingCpuLogicBatchMixin",
+    "ae2.crafting.CraftingCpuLogicAccessor",
+    "compat.advancedae.AdvCraftingCpuAccessor",
+    "compat.extendedaeplus.ExtendedAePlusSuperMatrixBatchMixin",
+    "compat.appliede.AppliedETransmutationModuleBatchMixin",
+    "ae2.crafting.ExecutingCraftingJobAccessor",
+    "ae2.crafting.ElapsedTimeTrackerAccessor",
+    "ae2.crafting.TaskProgressAccessor",
+    "compat.advancedae.AaeExecutingCraftingJobAccessor",
+    "compat.advancedae.AaeElapsedTimeTrackerAccessor",
+    "compat.advancedae.AaeTaskProgressAccessor"
+  ],
+  "client": [
+    "ae2.client.CraftConfirmScreenMixin",
+    "ae2.client.CPUSelectionListStorageMixin",
+    "ae2.client.CraftConfirmScreenCpuStatusMixin",
+    "ae2.client.TooltipsByteAmountMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
