@@ -27,7 +27,7 @@ import com.moakiee.ae2lt.me.key.LightningKey;
 import com.moakiee.ae2lt.me.key.LightningKeyType;
 import com.moakiee.ae2lt.registry.ModItems;
 
-@EventBusSubscriber(modid = AE2LightningTech.MODID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+@EventBusSubscriber(modid = AE2LightningTech.MODID, value = Dist.CLIENT)
 public final class LightningKeyClientInit {
     private LightningKeyClientInit() {
     }

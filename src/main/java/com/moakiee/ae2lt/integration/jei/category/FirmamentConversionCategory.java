@@ -144,7 +144,7 @@ public class FirmamentConversionCategory implements IRecipeCategory<FirmamentCon
 
     @Override
     public void createRecipeExtras(IRecipeExtrasBuilder builder, FirmamentConversionRecipe recipe, IFocusGroup focuses) {
-        builder.addRecipeArrow().setPosition(ARROW_X, ARROW_Y);
+        builder.addRecipeArrowWidget().setPosition(ARROW_X, ARROW_Y);
     }
 
     @Override

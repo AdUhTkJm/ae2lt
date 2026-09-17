@@ -21,7 +21,7 @@ import com.moakiee.ae2lt.celestweave.BaseCelestweaveArmorItem;
 import com.moakiee.ae2lt.item.PhaseLockProjectionItem;
 import com.moakiee.ae2lt.item.railgun.ElectromagneticRailgunItem;
 
-@EventBusSubscriber(modid = AE2LightningTech.MODID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+@EventBusSubscriber(modid = AE2LightningTech.MODID, value = Dist.CLIENT)
 public final class DeviceHubKeyMappings {
     private static final String CATEGORY = "key.categories.ae2lt";
 
@@ -44,7 +44,7 @@ public final class DeviceHubKeyMappings {
         event.register(OPEN_CONFIG);
     }
 
-    @EventBusSubscriber(modid = AE2LightningTech.MODID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
+    @EventBusSubscriber(modid = AE2LightningTech.MODID, value = Dist.CLIENT)
     public static final class RuntimeHandler {
         private RuntimeHandler() {
         }

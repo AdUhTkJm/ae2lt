@@ -8,7 +8,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 
 /** Loads the API-backed Polymorph integration only when all of its optional classes are present. */
-@EventBusSubscriber(modid = AE2LightningTech.MODID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+@EventBusSubscriber(modid = AE2LightningTech.MODID, value = Dist.CLIENT)
 public final class TianshuPolymorphCompatBootstrap {
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {

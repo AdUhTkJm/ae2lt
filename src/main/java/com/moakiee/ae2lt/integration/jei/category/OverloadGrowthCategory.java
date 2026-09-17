@@ -109,7 +109,7 @@ public class OverloadGrowthCategory extends AbstractRecipeCategory<OverloadGrowt
             builder.addText(Component.translatable("jei.ae2lt.overload_growth.bud_growth"), WIDTH, 20)
                     .setTextAlignment(HorizontalAlignment.CENTER)
                     .setColor(BODY_COLOR);
-            builder.addRecipeArrow().setPosition(centerX - 12, 25);
+            builder.addRecipeArrowWidget().setPosition(centerX - 12, 25);
         }
 
         @Override
@@ -139,7 +139,7 @@ public class OverloadGrowthCategory extends AbstractRecipeCategory<OverloadGrowt
             builder.addText(Component.translatable(key), WIDTH, 20)
                     .setTextAlignment(HorizontalAlignment.CENTER)
                     .setColor(BODY_COLOR);
-            builder.addRecipeArrow().setPosition(centerX - 12, 25);
+            builder.addRecipeArrowWidget().setPosition(centerX - 12, 25);
 
             if (page == Page.CLUSTER_LOOT) {
                 builder.addText(Component.translatable("jei.ae2lt.overload_growth.cluster_loot_fortune"), WIDTH, 10)
@@ -180,7 +180,7 @@ public class OverloadGrowthCategory extends AbstractRecipeCategory<OverloadGrowt
             builder.addText(Component.translatable("jei.ae2lt.overload_growth.decay"), WIDTH, 20)
                     .setTextAlignment(HorizontalAlignment.CENTER)
                     .setColor(BODY_COLOR);
-            builder.addRecipeArrow().setPosition(centerX - 12, 30);
+            builder.addRecipeArrowWidget().setPosition(centerX - 12, 30);
 
             int decayChancePct = 100 / BuddingOverloadCrystalBlock.DECAY_CHANCE;
             builder.addText(
@@ -209,7 +209,7 @@ public class OverloadGrowthCategory extends AbstractRecipeCategory<OverloadGrowt
     private class BuddingOverloadMovingView implements View {
         @Override
         public void createRecipeExtras(IRecipeExtrasBuilder builder, IFocusGroup focuses) {
-            builder.addRecipeArrow().setPosition(centerX - 12, 0);
+            builder.addRecipeArrowWidget().setPosition(centerX - 12, 0);
             builder.addScrollBoxWidget(WIDTH, HEIGHT - 20, 0, 20)
                     .setContents(List.of(
                             Component.translatable("jei.ae2lt.overload_growth.break_decay").withColor(BODY_COLOR),

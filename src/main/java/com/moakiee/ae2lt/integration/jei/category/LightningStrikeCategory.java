@@ -133,7 +133,7 @@ public class LightningStrikeCategory implements IRecipeCategory<LightningStrikeR
 
     @Override
     public void createRecipeExtras(IRecipeExtrasBuilder builder, LightningStrikeRecipe recipe, IFocusGroup focuses) {
-        builder.addRecipeArrow().setPosition(ARROW_X, ARROW_Y);
+        builder.addRecipeArrowWidget().setPosition(ARROW_X, ARROW_Y);
 
         var widgetBuilder = MultiblockPreviewWidget.builder(PREVIEW_X, PREVIEW_Y, PREVIEW_W, PREVIEW_H);
 

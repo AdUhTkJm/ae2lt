@@ -19,7 +19,7 @@ import net.neoforged.neoforge.client.event.RegisterShadersEvent;
 import org.joml.Matrix4f;
 import org.slf4j.Logger;
 
-@EventBusSubscriber(modid = AE2LightningTech.MODID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+@EventBusSubscriber(modid = AE2LightningTech.MODID, value = Dist.CLIENT)
 public final class CoreEffectShaders {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final ResourceLocation TIANSHU_SHADER =

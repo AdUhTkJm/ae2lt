@@ -109,8 +109,8 @@ public class LightningTransformCategory implements IRecipeCategory<LightningTran
 
     @Override
     public void createRecipeExtras(IRecipeExtrasBuilder builder, LightningTransformRecipe recipe, IFocusGroup focuses) {
-        builder.addRecipeArrow().setPosition(ARROW_LEFT_X, ARROW_Y);
-        builder.addRecipeArrow().setPosition(ARROW_RIGHT_X, ARROW_Y);
+        builder.addRecipeArrowWidget().setPosition(ARROW_LEFT_X, ARROW_Y);
+        builder.addRecipeArrowWidget().setPosition(ARROW_RIGHT_X, ARROW_Y);
     }
 
     @Override

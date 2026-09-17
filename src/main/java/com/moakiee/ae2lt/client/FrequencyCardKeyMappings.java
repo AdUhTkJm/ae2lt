@@ -13,7 +13,7 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-@EventBusSubscriber(modid = AE2LightningTech.MODID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+@EventBusSubscriber(modid = AE2LightningTech.MODID, value = Dist.CLIENT)
 public final class FrequencyCardKeyMappings {
     private static final String CATEGORY = "key.categories.ae2lt";
 
@@ -30,7 +30,7 @@ public final class FrequencyCardKeyMappings {
         event.register(TOGGLE_AUTO_CONNECT);
     }
 
-    @EventBusSubscriber(modid = AE2LightningTech.MODID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
+    @EventBusSubscriber(modid = AE2LightningTech.MODID, value = Dist.CLIENT)
     public static final class RuntimeHandler {
         private RuntimeHandler() {
         }
