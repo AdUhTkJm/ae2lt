@@ -294,7 +294,7 @@ public abstract class CraftingCalculationMixin implements CraftingPlanningContro
         thunderbolt$candidates = List.of(CapturedPlanningChoice.vanilla());
     }
 
-    @Inject(method = "runCraftAttempt", at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = "runCraftAttempt", at = @At("HEAD"), remap = false)
     private void thunderbolt$planAttempt(
             boolean simulate, long amount, CallbackInfoReturnable<CraftingPlan> cir) {
         thunderbolt$attempts.incrementAndGet();

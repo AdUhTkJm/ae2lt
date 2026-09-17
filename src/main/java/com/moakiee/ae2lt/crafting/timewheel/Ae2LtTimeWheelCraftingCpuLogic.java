@@ -14,8 +14,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 
+import appeng.crafting.inv.ICraftingInventory;
 import com.google.common.base.Preconditions;
 
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.core.BlockPos;
@@ -266,7 +268,7 @@ public final class Ae2LtTimeWheelCraftingCpuLogic {
             }
             if (extracted < requested) {
                 adjustedUsedItems.add(
-                        allocation.bootstrap() ? allocation.actualKey() : allocation.plannedKey(),
+                    extractionKey,
                         requested - extracted);
                 hostShortfall = true;
             }
@@ -416,12 +418,10 @@ public final class Ae2LtTimeWheelCraftingCpuLogic {
             return TickUsage.EMPTY;
         }
 
-        int remainingOperations = Math.min(
-                Math.max(0, maxOps),
-                cpu.getSuccessfulDispatchesPerTick());
-        long remainingCopies = Math.min(
-                Math.max(0L, maxCopies),
-                cpu.hasUnboundedBatch() ? Long.MAX_VALUE : cpu.getMaxCopiesPerTick());
+        int remainingOperations = Math.clamp(maxOps, 0,
+            cpu.getSuccessfulDispatchesPerTick());
+        long remainingCopies = Math.clamp(maxCopies, 0L,
+            cpu.hasUnboundedBatch() ? Long.MAX_VALUE : cpu.getMaxCopiesPerTick());
         return executeCraftingBudgeted(
                 remainingOperations,
                 remainingCopies,
@@ -465,7 +465,7 @@ public final class Ae2LtTimeWheelCraftingCpuLogic {
         long cpuCopyLimit = cpu.hasUnboundedBatch() ? Long.MAX_VALUE : cpu.getMaxCopiesPerTick();
         long copyLimit = Math.min(cpuCopyLimit, requestedCopyLimit);
         int probes = 0;
-        int probeBudget = (int) Math.min(Math.max(1024L, (long) maxOps * 2L), MAX_TASK_PROBES_PER_TICK);
+        int probeBudget = (int) Math.clamp((long) maxOps * 2L, 1024L, MAX_TASK_PROBES_PER_TICK);
 
         beginStatusChangeBatch();
         try {
@@ -692,7 +692,7 @@ public final class Ae2LtTimeWheelCraftingCpuLogic {
                 consumeTaskCopies(activeJob, details, 1L);
                 return DispatchOutcome.PUSHED;
             }
-                return DispatchOutcome.RETRY_SOON;
+            return DispatchOutcome.RETRY_SOON;
         } finally {
             if (!pushed && craftingContainer != null) {
                 CraftingCpuHelper.reinjectPatternInputs(extractionInventory, craftingContainer);
@@ -742,7 +742,7 @@ public final class Ae2LtTimeWheelCraftingCpuLogic {
             return new BulkPush(0, 1);
         }
 
-        int budget = (int) Math.min(task.value, (long) maxCopies);
+        int budget = (int) Math.min(task.value, maxCopies);
         var result = ParallelBatchCpuHelper.bulkExtract(
                 details, inventory, budget, false, reservedSeedStock(details), level);
         if (result == null) {
@@ -763,7 +763,7 @@ public final class Ae2LtTimeWheelCraftingCpuLogic {
         if (wanted > 0) {
             double avail = energyService.extractAEPower(wanted, Actionable.SIMULATE, PowerMultiplier.CONFIG);
             if (avail < wanted - 0.01D) {
-                affordable = (int) Math.min((long) actual, (long) Math.floor(avail / powerOne));
+                affordable = (int) Math.min(actual, (long) Math.floor(avail / powerOne));
             }
         }
         if (affordable <= 0) {
@@ -965,9 +965,8 @@ public final class Ae2LtTimeWheelCraftingCpuLogic {
         if (!activeJob.softCancelling && preview.claimedForRequester() > 0) {
             retainedRequester = retainableFinalOutputAmount(
                     activeJob, what, preview.claimedForRequester());
-            long requesterLimit = Math.min(
-                    Math.max(0L, preview.claimedForRequester() - retainedRequester),
-                    activeJob.remainingAmount);
+            long requesterLimit = Math.clamp(preview.claimedForRequester() - retainedRequester, 0L,
+                activeJob.remainingAmount);
             requesterAccepted = offerToRequester(activeJob, what, requesterLimit, type);
             boolean fallsThroughToNetwork = activeJob.link.isStandalone();
             long requesterCompleted = FinalOutputProgress.completedAmount(
@@ -1002,9 +1001,8 @@ public final class Ae2LtTimeWheelCraftingCpuLogic {
                 retainedRequester = Math.min(retainedRequester, publicInventory);
                 long inventoryAccepted = applyInventoryClaims(activeJob, what, claims);
                 markRetainedRequesterClaim(what, retainedRequester);
-                long deferredCommitted = Math.min(
-                        deferredRequester,
-                        Math.max(0L, publicInventory - retainedRequester));
+                long deferredCommitted = Math.clamp(publicInventory - retainedRequester, 0L,
+                    deferredRequester);
                 if (deferredCommitted > 0
                         && job == activeJob
                         && !activeJob.link.isCanceled()) {
@@ -1135,7 +1133,7 @@ public final class Ae2LtTimeWheelCraftingCpuLogic {
             AEKey what, long amount, long quota, Actionable type) {
         if (amount <= 0 || quota <= 0) return 0L;
         long alreadyHeld = inventory.extract(what, Long.MAX_VALUE, Actionable.SIMULATE);
-        long reserved = Math.min(amount, Math.max(0L, quota - alreadyHeld));
+        long reserved = Math.clamp(quota - alreadyHeld, 0L, amount);
         if (reserved > 0 && type == Actionable.MODULATE) {
             inventory.insert(what, reserved, Actionable.MODULATE);
             wakeSchedulerForReturnedInput(what);
@@ -1427,6 +1425,7 @@ public final class Ae2LtTimeWheelCraftingCpuLogic {
                 return reserved > 0 ? reserved : null;
             }
 
+            @NotNull
             @Override
             public Set<Entry<AEKey, Long>> entrySet() {
                 return Set.of();
@@ -1528,7 +1527,7 @@ public final class Ae2LtTimeWheelCraftingCpuLogic {
                 alreadyRetained = addSaturated(alreadyRetained, retained.getLongValue());
             }
         }
-        return Math.min(amount, Math.max(0L, demand - alreadyRetained));
+        return Math.clamp(demand - alreadyRetained, 0L, amount);
     }
 
     private boolean sharesPendingLoopConsumer(
@@ -1641,7 +1640,7 @@ public final class Ae2LtTimeWheelCraftingCpuLogic {
         requesterOutputInFlight = what;
         try {
             long accepted = activeJob.link.insert(what, amount, type);
-            return Math.min(amount, Math.max(0L, accepted));
+            return Math.clamp(accepted, 0L, amount);
         } finally {
             requesterOutputInFlight = previousOutput;
         }
@@ -1747,7 +1746,7 @@ public final class Ae2LtTimeWheelCraftingCpuLogic {
             counter.remove(key);
             return;
         }
-        long remaining = Math.max(0L, current - Math.max(0L, amount));
+        long remaining = Math.max(0L, current - amount);
         if (remaining == current) return;
         if (remaining <= 0) {
             counter.remove(key);
@@ -2177,13 +2176,10 @@ public final class Ae2LtTimeWheelCraftingCpuLogic {
                 }
             }
         }
-        if (OverloadCpuStateManager.INSTANCE.hasAmbiguousOutputRegistration(
-                this,
-                reference,
-                overloadDetails.overloadPatternDetailsView())) {
-            return true;
-        }
-        return false;
+        return OverloadCpuStateManager.INSTANCE.hasAmbiguousOutputRegistration(
+            this,
+            reference,
+            overloadDetails.overloadPatternDetailsView());
     }
 
     private void recordPushedPattern(TimeWheelJob activeJob,
@@ -2327,7 +2323,7 @@ public final class Ae2LtTimeWheelCraftingCpuLogic {
         var iterator = remainingByConsumer.entrySet().iterator();
         while (iterator.hasNext() && remaining > 0) {
             var entry = iterator.next();
-            long amount = Math.min(Math.max(0L, entry.getValue()), remaining);
+            long amount = Math.clamp(entry.getValue(), 0L, remaining);
             if (amount > 0) {
                 result.add(new OverloadConsumerCredit(entry.getKey(), amount));
                 remaining -= amount;
@@ -2512,7 +2508,7 @@ public final class Ae2LtTimeWheelCraftingCpuLogic {
             return;
         }
 
-        int delta = (int) Math.max(0L, Math.min(WHEEL_SIZE, now - schedulerTick));
+        int delta = (int) Math.clamp(now - schedulerTick, 0L, WHEEL_SIZE);
         schedulerTick = now;
         if (delta == 0) {
             return;
@@ -2638,7 +2634,7 @@ public final class Ae2LtTimeWheelCraftingCpuLogic {
         }
 
         unparkTask(details);
-        var taskKeys = new ArrayList<Object>(missingKeys.size());
+        var taskKeys = new ArrayList<>(missingKeys.size());
         for (var key : missingKeys) {
             taskKeys.add(key != null ? key.getPrimaryKey() : null);
         }
@@ -2940,16 +2936,8 @@ public final class Ae2LtTimeWheelCraftingCpuLogic {
     private record WaitingExtract(long extracted, boolean removedKey) {
     }
 
-    private static final class ReservedCraftingInventory
-            implements appeng.crafting.inv.ICraftingInventory {
-        private final appeng.crafting.inv.ICraftingInventory delegate;
-        private final Map<AEKey, Long> reserved;
-
-        private ReservedCraftingInventory(
-                appeng.crafting.inv.ICraftingInventory delegate, Map<AEKey, Long> reserved) {
-            this.delegate = delegate;
-            this.reserved = reserved;
-        }
+    private record ReservedCraftingInventory(ICraftingInventory delegate, Map<AEKey, Long> reserved)
+        implements ICraftingInventory {
 
         @Override
         public void insert(AEKey what, long amount, Actionable mode) {
@@ -2960,7 +2948,7 @@ public final class Ae2LtTimeWheelCraftingCpuLogic {
         public long extract(AEKey what, long amount, Actionable mode) {
             long held = delegate.extract(what, Long.MAX_VALUE, Actionable.SIMULATE);
             long available = Math.max(0L, held - reserved.getOrDefault(what, 0L));
-            long requested = Math.min(Math.max(0L, amount), available);
+            long requested = Math.clamp(amount, 0L, available);
             return requested > 0 ? delegate.extract(what, requested, mode) : 0L;
         }
 
@@ -2979,10 +2967,10 @@ public final class Ae2LtTimeWheelCraftingCpuLogic {
         private final SharedBatchSeedConsumerState sharedBatchSeedConsumers =
                 new SharedBatchSeedConsumerState();
         private final ElapsedTimeTracker timeTracker;
-        private GenericStack finalOutput;
+        private final GenericStack finalOutput;
         private long remainingAmount;
         @Nullable
-        private Integer playerId;
+        private final Integer playerId;
         private boolean suspended;
         private boolean softCancelling;
         private boolean closedLoopJob;
