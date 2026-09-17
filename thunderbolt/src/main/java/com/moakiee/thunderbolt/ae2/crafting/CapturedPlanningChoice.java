@@ -14,7 +14,7 @@ public record CapturedPlanningChoice(
         @Nullable Object capturedInput) {
     public CapturedPlanningChoice {
         Objects.requireNonNull(choice, "choice");
-        if ((choice.kind() == PlanningChoice.Kind.ENGINE) != (engine != null)) {
+        if ((choice.kind() == PlanningChoice.Kind.ENGINE) == (engine == null)) {
             throw new IllegalArgumentException("Only engine choices may carry an engine");
         }
     }
