@@ -13,6 +13,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -94,7 +95,7 @@ public class CrystalCatalyzerBlockEntity extends AENetworkedBlockEntity
     private Mode mode = Mode.CRYSTAL;
 
     private final CrystalCatalyzerInventory inventory =
-            new CrystalCatalyzerInventory(this::onInventoryChanged, this::getMode);
+            new CrystalCatalyzerInventory(this::onInventoryChanged, this::getMode, this::isPigmeeVariant);
     private final CrystalCatalyzerAutomationInventory automationInventory =
             new CrystalCatalyzerAutomationInventory(inventory);
     private final NotifyingFluidTank tank =
@@ -117,11 +118,23 @@ public class CrystalCatalyzerBlockEntity extends AENetworkedBlockEntity
             new AdjacentItemAutoExportHelper.DirectionalTargetCache();
 
     public CrystalCatalyzerBlockEntity(BlockPos pos, BlockState blockState) {
-        super(ModBlockEntities.CRYSTAL_CATALYZER.get(), pos, blockState);
+        super(blockEntityTypeFor(blockState), pos, blockState);
         this.logic = new CrystalCatalyzerLogic(this);
         getMainNode()
                 .setIdlePowerUsage(0)
                 .addService(IGridTickable.class, logic);
+    }
+
+    private static net.minecraft.world.level.block.entity.BlockEntityType<CrystalCatalyzerBlockEntity>
+            blockEntityTypeFor(BlockState state) {
+        return state.is(ModBlocks.PIGMEE_CRYSTAL_CATALYZER.get())
+                ? ModBlockEntities.PIGMEE_CRYSTAL_CATALYZER.get()
+                : ModBlockEntities.CRYSTAL_CATALYZER.get();
+    }
+
+    /** Whether this block entity belongs to the water-only Pigmee variant. */
+    public boolean isPigmeeVariant() {
+        return getBlockState().is(ModBlocks.PIGMEE_CRYSTAL_CATALYZER.get());
     }
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, CrystalCatalyzerBlockEntity be) {
@@ -266,9 +279,14 @@ public class CrystalCatalyzerBlockEntity extends AENetworkedBlockEntity
         if (!hasEnoughFixedFluid()) {
             return Optional.empty();
         }
+        if (isPigmeeVariant()
+                && inventory.getStackInSlot(CrystalCatalyzerInventory.SLOT_CATALYST).getCount()
+                        < CrystalCatalyzerInventory.PIGMEE_CATALYST_SLOT_LIMIT) {
+            return Optional.empty();
+        }
 
         Optional<CrystalCatalyzerRecipeCandidate> candidate = CrystalCatalyzerRecipeService.findRecipe(
-                level, inventory, mode);
+                level, inventory, getMode());
         if (candidate.isEmpty()) {
             return Optional.empty();
         }
@@ -276,7 +294,7 @@ public class CrystalCatalyzerBlockEntity extends AENetworkedBlockEntity
     }
 
     public Mode getMode() {
-        return mode;
+        return isPigmeeVariant() ? Mode.CRYSTAL : mode;
     }
 
     /**
@@ -284,6 +302,9 @@ public class CrystalCatalyzerBlockEntity extends AENetworkedBlockEntity
      * （因为新模式可能根本不认现槽内催化剂）。
      */
     public void cycleMode() {
+        if (isPigmeeVariant()) {
+            return;
+        }
         Mode previous = this.mode;
         this.mode = previous.next();
         abortProcessing();
@@ -304,8 +325,13 @@ public class CrystalCatalyzerBlockEntity extends AENetworkedBlockEntity
 
     private boolean canAcceptRecipeOutput(CrystalCatalyzerRecipeCandidate candidate) {
         return canAcceptRecipeOutput(
-                candidate.recipe().value().getOutputTemplate(),
+                getMachineOutput(candidate),
                 getCurrentOutputMultiplier(candidate));
+    }
+
+    private ItemStack getMachineOutput(CrystalCatalyzerRecipeCandidate candidate) {
+        var output = candidate.recipe().value().getOutputTemplate();
+        return isPigmeeVariant() ? output.copyWithCount(CrystalCatalyzerLogic.PIGMEE_OUTPUT_COUNT) : output;
     }
 
     public boolean canAcceptLockedRecipeOutput(CrystalCatalyzerLockedRecipe lockedRecipe) {
@@ -313,6 +339,9 @@ public class CrystalCatalyzerBlockEntity extends AENetworkedBlockEntity
     }
 
     public boolean canAdvanceLockedRecipe(CrystalCatalyzerLockedRecipe lockedRecipe) {
+        if (isPigmeeVariant() || lockedRecipe.lightningCost() <= 0) {
+            return hasEnoughFixedFluid();
+        }
         LightningKey lightningKey = LightningKey.of(lockedRecipe.lightningTier());
         long lightningCost = lockedRecipe.lightningCost();
         return hasEnoughFixedFluid()
@@ -329,7 +358,9 @@ public class CrystalCatalyzerBlockEntity extends AENetworkedBlockEntity
 
     private ItemStack getLockedRecipeOutputStack(CrystalCatalyzerLockedRecipe lockedRecipe) {
         ItemStack template = lockedRecipe.output();
-        long outputCount = (long) template.getCount() * lockedRecipe.outputMultiplier();
+        // Apply the fixed Pigmee yield to older in-flight snapshots as well.
+        long outputCount = isPigmeeVariant() ? CrystalCatalyzerLogic.PIGMEE_OUTPUT_COUNT
+                : (long) template.getCount() * lockedRecipe.outputMultiplier();
         if (outputCount <= 0 || outputCount > Integer.MAX_VALUE) {
             return ItemStack.EMPTY;
         }
@@ -343,7 +374,8 @@ public class CrystalCatalyzerBlockEntity extends AENetworkedBlockEntity
      * which candidate will run (e.g. restoring a locked recipe from NBT at load time).
      */
     private int getCurrentOutputMultiplier() {
-        return inventory.hasLightningCollapseMatrix() ? MATRIX_OUTPUT_MULTIPLIER : 1;
+        return !isPigmeeVariant() && inventory.hasLightningCollapseMatrix()
+                ? MATRIX_OUTPUT_MULTIPLIER : 1;
     }
 
     /**
@@ -355,13 +387,17 @@ public class CrystalCatalyzerBlockEntity extends AENetworkedBlockEntity
      * the whole processing cycle.
      */
     private int getCurrentOutputMultiplier(CrystalCatalyzerRecipeCandidate candidate) {
-        int matrix = inventory.hasLightningCollapseMatrix() ? MATRIX_OUTPUT_MULTIPLIER : 1;
+        int matrix = !isPigmeeVariant() && inventory.hasLightningCollapseMatrix()
+                ? MATRIX_OUTPUT_MULTIPLIER : 1;
         int parallel = computeParallel(candidate);
         long multiplier = (long) Math.max(1, parallel) * matrix;
         return (int) Math.min(multiplier, Integer.MAX_VALUE);
     }
 
     private int computeParallel(CrystalCatalyzerRecipeCandidate candidate) {
+        if (isPigmeeVariant()) {
+            return 1;
+        }
         if (candidate == null) {
             return 1;
         }
@@ -395,8 +431,16 @@ public class CrystalCatalyzerBlockEntity extends AENetworkedBlockEntity
             return Optional.empty();
         }
 
-        lockedRecipe = CrystalCatalyzerLockedRecipe.fromCandidate(
-                candidate.get(), getCurrentOutputMultiplier(candidate.get()));
+        if (isPigmeeVariant()) {
+            var holder = candidate.get().recipe();
+            var recipe = holder.value();
+            // Keep the shared recipe's cost metadata. This machine bypasses energy in its tick driver.
+            lockedRecipe = new CrystalCatalyzerLockedRecipe(holder.id(), getMachineOutput(candidate.get()),
+                    recipe.energyPerCycle(), 1, recipe.lightningCost(), recipe.lightningTier());
+        } else {
+            lockedRecipe = CrystalCatalyzerLockedRecipe.fromCandidate(
+                    candidate.get(), getCurrentOutputMultiplier(candidate.get()));
+        }
         saveChanges();
         return Optional.of(lockedRecipe);
     }
@@ -431,8 +475,12 @@ public class CrystalCatalyzerBlockEntity extends AENetworkedBlockEntity
     }
 
     public double getProgress() {
-        if (lockedRecipe == null || lockedRecipe.totalEnergy() <= 0L) {
+        if (lockedRecipe == null) {
             return 0.0D;
+        }
+        if (lockedRecipe.totalEnergy() <= 0L) {
+            return Math.min(1.0D,
+                    (double) processingTicksSpent / (double) CrystalCatalyzerLogic.PIGMEE_PROCESS_TICKS);
         }
         return Math.min(1.0D, (double) consumedEnergy / (double) lockedRecipe.totalEnergy());
     }
@@ -450,6 +498,14 @@ public class CrystalCatalyzerBlockEntity extends AENetworkedBlockEntity
 
     private void incrementProcessingTicksSpent() {
         processingTicksSpent++;
+    }
+
+    public void advanceEnergyFreeProcessingTick() {
+        processingTicksSpent = Math.min(
+                CrystalCatalyzerLogic.PIGMEE_PROCESS_TICKS,
+                processingTicksSpent + 1);
+        saveChanges();
+        markForClientUpdate();
     }
 
     @Override
@@ -521,11 +577,11 @@ public class CrystalCatalyzerBlockEntity extends AENetworkedBlockEntity
     }
 
     public long getAvailableHighVoltage() {
-        return simulateLightningExtract(LightningKey.HIGH_VOLTAGE, Long.MAX_VALUE);
+        return isPigmeeVariant() ? 0L : simulateLightningExtract(LightningKey.HIGH_VOLTAGE, Long.MAX_VALUE);
     }
 
     public long getAvailableExtremeHighVoltage() {
-        return simulateLightningExtract(LightningKey.EXTREME_HIGH_VOLTAGE, Long.MAX_VALUE);
+        return isPigmeeVariant() ? 0L : simulateLightningExtract(LightningKey.EXTREME_HIGH_VOLTAGE, Long.MAX_VALUE);
     }
 
     private long simulateLightningExtract(LightningKey key, long amount) {
@@ -581,18 +637,22 @@ public class CrystalCatalyzerBlockEntity extends AENetworkedBlockEntity
             return false;
         }
 
-        LightningKey lightningKey = LightningKey.of(lockedRecipe.lightningTier());
+        LightningKey lightningKey = null;
         long lightningCost = lockedRecipe.lightningCost();
-        if (simulateLightningExtract(lightningKey, lightningCost) < lightningCost) {
-            return false;
-        }
-
-        long extractedLightning = extractLightning(lightningKey, lightningCost);
-        if (extractedLightning < lightningCost) {
-            if (extractedLightning > 0L) {
-                insertLightning(lightningKey, extractedLightning);
+        long extractedLightning = 0L;
+        if (!isPigmeeVariant() && lightningCost > 0L) {
+            lightningKey = LightningKey.of(lockedRecipe.lightningTier());
+            if (simulateLightningExtract(lightningKey, lightningCost) < lightningCost) {
+                return false;
             }
-            return false;
+
+            extractedLightning = extractLightning(lightningKey, lightningCost);
+            if (extractedLightning < lightningCost) {
+                if (extractedLightning > 0L) {
+                    insertLightning(lightningKey, extractedLightning);
+                }
+                return false;
+            }
         }
 
         FluidStack drained = tank.drain(requiredFluid, FluidAction.EXECUTE);
@@ -600,14 +660,18 @@ public class CrystalCatalyzerBlockEntity extends AENetworkedBlockEntity
             if (!drained.isEmpty()) {
                 tank.fill(drained, FluidAction.EXECUTE);
             }
-            insertLightning(lightningKey, extractedLightning);
+            if (lightningKey != null) {
+                insertLightning(lightningKey, extractedLightning);
+            }
             return false;
         }
 
         ItemStack leftover = inventory.insertRecipeOutput(resultStack, false);
         if (!leftover.isEmpty()) {
             tank.fill(drained, FluidAction.EXECUTE);
-            insertLightning(lightningKey, extractedLightning);
+            if (lightningKey != null) {
+                insertLightning(lightningKey, extractedLightning);
+            }
             return false;
         }
 
@@ -648,7 +712,8 @@ public class CrystalCatalyzerBlockEntity extends AENetworkedBlockEntity
     public void setWorking(boolean working) {
         if (level != null) {
             BlockState state = level.getBlockState(worldPosition);
-            if (state.is(ModBlocks.CRYSTAL_CATALYZER.get())
+            if ((state.is(ModBlocks.CRYSTAL_CATALYZER.get())
+                    || state.is(ModBlocks.PIGMEE_CRYSTAL_CATALYZER.get()))
                     && level.getBlockEntity(worldPosition) == this
                     && state.hasProperty(CrystalCatalyzerBlock.WORKING)
                     && state.getValue(CrystalCatalyzerBlock.WORKING) != working) {
@@ -671,7 +736,7 @@ public class CrystalCatalyzerBlockEntity extends AENetworkedBlockEntity
             outputTags.add(StringTag.valueOf(side.name()));
         }
         data.put(TAG_ALLOWED_OUTPUTS, outputTags);
-        data.putString(TAG_MODE, mode.getSerializedName());
+        data.putString(TAG_MODE, getMode().getSerializedName());
         if (lockedRecipe != null) {
             data.put(TAG_LOCKED_RECIPE, lockedRecipe.toTag(registries));
         } else {
@@ -698,7 +763,7 @@ public class CrystalCatalyzerBlockEntity extends AENetworkedBlockEntity
             } catch (IllegalArgumentException ignored) {
             }
         }
-        if (data.contains(TAG_MODE, Tag.TAG_STRING)) {
+        if (data.contains(TAG_MODE, Tag.TAG_STRING) && !isPigmeeVariant()) {
             String modeName = data.getString(TAG_MODE);
             mode = Mode.CRYSTAL;
             for (Mode m : Mode.values()) {
@@ -708,6 +773,9 @@ public class CrystalCatalyzerBlockEntity extends AENetworkedBlockEntity
                 }
             }
         } else {
+            mode = Mode.CRYSTAL;
+        }
+        if (isPigmeeVariant()) {
             mode = Mode.CRYSTAL;
         }
         if (data.contains(TAG_LOCKED_RECIPE, Tag.TAG_COMPOUND)) {
@@ -722,6 +790,20 @@ public class CrystalCatalyzerBlockEntity extends AENetworkedBlockEntity
             consumedEnergy = 0L;
             processingTicksSpent = 0;
         } else {
+            if (isPigmeeVariant()) {
+                // Earlier versions duplicated recipes under pigmee_* IDs. Keep an in-flight cycle
+                // and its output/progress while resolving it against the original shared recipe.
+                var id = lockedRecipe.recipeId();
+                var oldPrefix = "crystal_catalyzer/pigmee_";
+                if (id.getNamespace().equals("ae2lt") && id.getPath().startsWith(oldPrefix)) {
+                    var sharedId = ResourceLocation.fromNamespaceAndPath("ae2lt",
+                            "crystal_catalyzer/" + id.getPath().substring(oldPrefix.length()));
+                    lockedRecipe = new CrystalCatalyzerLockedRecipe(sharedId, lockedRecipe.output(),
+                            lockedRecipe.energyPerCycle(), lockedRecipe.outputMultiplier(),
+                            lockedRecipe.lightningCost(), lockedRecipe.lightningTier());
+                }
+                consumedEnergy = 0L;
+            }
             consumedEnergy = Math.min(consumedEnergy, lockedRecipe.totalEnergy());
         }
         exportTargetCache.invalidate();
@@ -802,6 +884,9 @@ public class CrystalCatalyzerBlockEntity extends AENetworkedBlockEntity
                 tag -> {
                     Mode importedMode = MemoryCardConfigSupport.readEnum(
                             tag, TAG_MODE, Mode.class, this.mode);
+                    if (isPigmeeVariant()) {
+                        importedMode = Mode.CRYSTAL;
+                    }
                     if (this.mode != importedMode) {
                         this.mode = importedMode;
                         abortProcessing();
@@ -819,7 +904,8 @@ public class CrystalCatalyzerBlockEntity extends AENetworkedBlockEntity
 
     @Override
     protected net.minecraft.world.item.Item getItemFromBlockEntity() {
-        return ModBlocks.CRYSTAL_CATALYZER.get().asItem();
+        return (isPigmeeVariant() ? ModBlocks.PIGMEE_CRYSTAL_CATALYZER : ModBlocks.CRYSTAL_CATALYZER)
+                .get().asItem();
     }
 
     @Override

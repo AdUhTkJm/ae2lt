@@ -44,6 +44,7 @@ import com.moakiee.ae2lt.logic.tianshu.terminal.MaintenanceEditorData;
 import com.moakiee.ae2lt.logic.tianshu.terminal.PatternEncodingDuplicateFilter;
 import com.moakiee.ae2lt.logic.tianshu.maintenance.InventoryMaintenanceRule;
 import com.moakiee.ae2lt.logic.tianshu.maintenance.InventoryMaintenanceStatus;
+import com.moakiee.ae2lt.logic.tianshu.maintenance.MaintenanceRequestability;
 import com.moakiee.ae2lt.logic.tianshu.maintenance.MaintenanceTopologyService;
 import com.moakiee.ae2lt.logic.tianshu.maintenance.ReservedStockMatchMode;
 import com.moakiee.ae2lt.logic.tianshu.maintenance.TianshuInventoryMaintenanceService;
@@ -81,6 +82,7 @@ import com.moakiee.ae2lt.network.tianshu.RequestClosedLoopResultPagePacket;
 import com.moakiee.ae2lt.network.tianshu.RequestUploadTargetsPacket;
 import com.moakiee.ae2lt.network.tianshu.UploadPatternToTargetPacket;
 import com.moakiee.ae2lt.network.tianshu.UploadTargetsSyncPacket;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.EnumMap;
@@ -186,6 +188,8 @@ public class TianshuPatternEncodingTermMenu extends PatternEncodingTermMenu {
     private int maintenanceEditorRevision;
     private int maintenanceEditorSelectionRevision = Integer.MIN_VALUE;
     private List<PatternContainer> uploadTargets = List.of();
+    /** Server-side slot bindings captured by the same refresh that produced uploadTargetGroups. */
+    private Map<PatternContainerGroup, List<BoundUploadSlot>> boundUploadTargets = Map.of();
     private List<TianshuUploadTargetData> uploadTargetGroups = List.of();
     private int uploadTargetsRevision;
     private int lastMaintenanceSummaryTick = Integer.MIN_VALUE;
@@ -1086,24 +1090,32 @@ public class TianshuPatternEncodingTermMenu extends PatternEncodingTermMenu {
             finishProviderUpload(player, false);
             return;
         }
-        refreshUploadTargetsNow();
-        PatternContainer selected = null;
-        int selectedSlot = -1;
-        for (var target : uploadTargets) {
-            if (!group.equals(target.getTerminalGroup())) continue;
-            int free = firstFreePatternSlot(target.getTerminalPatternInventory(), stack);
-            if (free >= 0) {
-                selected = target;
-                selectedSlot = free;
-                break;
-            }
-        }
-        if (selected == null) {
+        var node = tianshuHost.getActionableNode();
+        var grid = node != null ? node.getGrid() : null;
+        var targets = boundUploadTargets.get(group);
+        if (grid == null || targets == null) {
             finishProviderUpload(player, false);
             return;
         }
-
-        uploadToProvider(player, selected, selectedSlot, stack);
+        for (var binding : targets) {
+            var target = binding.target();
+            try {
+                if (target.getGrid() != grid || !target.isVisibleInTerminal()) continue;
+                var inventory = target.getTerminalPatternInventory();
+                int slot = binding.slot();
+                if (slot < 0 || slot >= inventory.size()
+                        || !inventory.getStackInSlot(slot).isEmpty()
+                        || !inventory.isItemValid(slot, stack)) {
+                    continue;
+                }
+            } catch (RuntimeException ignored) {
+                // A captured machine can disappear between target discovery and the upload click.
+                continue;
+            }
+            uploadToProvider(player, target, binding.slot(), stack);
+            return;
+        }
+        finishProviderUpload(player, false);
     }
 
     private void uploadCraftingPatternServer(ServerPlayer player, ItemStack stack) {
@@ -1180,6 +1192,7 @@ public class TianshuPatternEncodingTermMenu extends PatternEncodingTermMenu {
     private void refreshUploadTargetsNow(ItemStack stack) {
         uploadTargets = discoverUploadTargets();
         if (uploadTargets.isEmpty()) {
+            boundUploadTargets = Map.of();
             uploadTargetGroups = List.of();
             return;
         }
@@ -1188,9 +1201,19 @@ public class TianshuPatternEncodingTermMenu extends PatternEncodingTermMenu {
             var group = target.getTerminalGroup();
             var summary = groups.computeIfAbsent(group, ignored -> new MutableUploadGroup());
             summary.providers++;
-            summary.availableSlots += countFreePatternSlots(
-                    target.getTerminalPatternInventory(), stack);
+            var inventory = target.getTerminalPatternInventory();
+            if (inventory == null || stack == null || stack.isEmpty()) continue;
+            for (int i = 0; i < inventory.size(); i++) {
+                if (inventory.getStackInSlot(i).isEmpty() && inventory.isItemValid(i, stack)) {
+                    summary.slots.add(new BoundUploadSlot(target, i));
+                    summary.availableSlots++;
+                }
+            }
         }
+        var bindings = new HashMap<PatternContainerGroup, List<BoundUploadSlot>>();
+        groups.forEach((group, summary) ->
+                bindings.put(group, List.copyOf(summary.slots)));
+        boundUploadTargets = bindings;
         uploadTargetGroups = groups.entrySet().stream()
                 .map(entry -> new TianshuUploadTargetData(
                         entry.getKey(), entry.getValue().providers, entry.getValue().availableSlots))
@@ -1268,16 +1291,6 @@ public class TianshuPatternEncodingTermMenu extends PatternEncodingTermMenu {
         return false;
     }
 
-    private static int countFreePatternSlots(
-            appeng.api.inventories.InternalInventory inventory, ItemStack stack) {
-        if (inventory == null || stack == null || stack.isEmpty()) return 0;
-        int count = 0;
-        for (int i = 0; i < inventory.size(); i++) {
-            if (inventory.getStackInSlot(i).isEmpty() && inventory.isItemValid(i, stack)) count++;
-        }
-        return count;
-    }
-
     private static int firstFreePatternSlot(
             appeng.api.inventories.InternalInventory inventory, ItemStack stack) {
         for (int i = 0; i < inventory.size(); i++) {
@@ -1286,7 +1299,11 @@ public class TianshuPatternEncodingTermMenu extends PatternEncodingTermMenu {
         return -1;
     }
 
+    private record BoundUploadSlot(PatternContainer target, int slot) {
+    }
+
     private static final class MutableUploadGroup {
+        final List<BoundUploadSlot> slots = new ArrayList<>();
         int providers;
         int availableSlots;
     }
@@ -1875,7 +1892,8 @@ public class TianshuPatternEncodingTermMenu extends PatternEncodingTermMenu {
         var grid = target.getGrid();
         if (maintenance == null) return;
         if (maintenance.repository().get(key) == null
-                && (grid == null || !grid.getCraftingService().isCraftable(key))) {
+                && (grid == null || !MaintenanceRequestability.isRequestable(
+                        grid.getCraftingService(), key))) {
             serverPlayer.displayClientMessage(net.minecraft.network.chat.Component.translatable(
                     "ae2lt.tianshu.maintenance.unsupported"), true);
             return;
@@ -1934,7 +1952,7 @@ public class TianshuPatternEncodingTermMenu extends PatternEncodingTermMenu {
                     boolean ruleReserveOverflow = service.reservedStock(rule.id()).size()
                             > TianshuPacketLimits.MAX_LIST_ENTRIES;
                     long storedAmount = available != null ? Math.max(0L, available.get(rule.key())) : 0L;
-                    boolean craftable = crafting != null && crafting.isCraftable(rule.key());
+                    boolean craftable = MaintenanceRequestability.isRequestable(crafting, rule.key());
                     summaries.put(rule.key(), new MaintenanceSummarySyncPacket.Entry(
                             rule.key(), true,
                             maintenanceSummaryStatus(rule, service.status(rule.id()), grid != null, craftable),
@@ -1950,7 +1968,7 @@ public class TianshuPatternEncodingTermMenu extends PatternEncodingTermMenu {
                         break;
                     }
                     long storedAmount = available != null ? Math.max(0L, available.get(reserve.key())) : 0L;
-                    boolean craftable = crafting != null && crafting.isCraftable(reserve.key());
+                    boolean craftable = MaintenanceRequestability.isRequestable(crafting, reserve.key());
                     var existing = summaries.get(reserve.key());
                     summaries.put(reserve.key(), existing == null
                             ? new MaintenanceSummarySyncPacket.Entry(
@@ -2146,7 +2164,8 @@ public class TianshuPatternEncodingTermMenu extends PatternEncodingTermMenu {
                         variant.key(), variant.storedAmount(), variant.craftable()))
                 .toList();
         long currentStock = available != null ? Math.max(0L, available.get(key)) : 0L;
-        boolean craftable = grid != null && grid.getCraftingService().isCraftable(key);
+        boolean craftable = grid != null && MaintenanceRequestability.isRequestable(
+                grid.getCraftingService(), key);
         var editorStatus = rule != null
                 ? maintenanceSummaryStatus(rule, maintenance.status(rule.id()), grid != null, craftable)
                 : InventoryMaintenanceStatus.IDLE;
@@ -2241,7 +2260,8 @@ public class TianshuPatternEncodingTermMenu extends PatternEncodingTermMenu {
         }
         if (existing == null) {
             var grid = target.getGrid();
-            if (grid == null || !grid.getCraftingService().isCraftable(packet.target())) {
+            if (grid == null || !MaintenanceRequestability.isRequestable(
+                    grid.getCraftingService(), packet.target())) {
                 player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
                         "ae2lt.tianshu.maintenance.unsupported"), true);
                 return;

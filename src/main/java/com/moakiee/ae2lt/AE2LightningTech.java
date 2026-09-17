@@ -52,6 +52,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
@@ -78,6 +79,7 @@ import com.moakiee.ae2lt.api.AE2LTCapabilities;
 import com.moakiee.ae2lt.api.frequency.FrequencyApi;
 import com.moakiee.ae2lt.grid.WirelessFrequencyManager;
 import com.moakiee.ae2lt.grid.wirelesslink.WirelessLinkRegistry;
+import com.moakiee.ae2lt.debug.WirelessIoPerformanceProbe;
 import com.moakiee.ae2lt.grid.api.FrequencyApiBridge;
 import com.moakiee.ae2lt.me.GridLightningEnergyHandler;
 import com.moakiee.ae2lt.me.cell.BulkLightningCellHandler;
@@ -339,9 +341,11 @@ public class AE2LightningTech {
                     .displayItems((parameters, output) -> {
                         output.accept(ModFumos.PIGMEE_FUMO_ITEM.get());
                         output.accept(ModFumos.CREATIVE_PIGMEE_FUMO_ITEM.get());
+                        output.accept(ModBlocks.PIGMEE_CRYSTAL_CATALYZER);
                         output.accept(ModBlocks.PIGMEE_MENTALMATH_UNIT);
                         output.accept(ModBlocks.PIGMEE_PATTERN_PROVIDER);
                         output.accept(ModBlocks.PIGMEE_MOLECULAR_ASSEMBLER);
+                        output.accept(ModBlocks.PIGMEE_SYNTHESIS_STATION);
                         output.accept(ModItems.PIGMEE_CORE);
                         output.accept(ModItems.PIGMEE_ITEM_CELL_HOUSING);
                         output.accept(ModItems.PIGMEE_STORAGE_COMPONENT);
@@ -384,6 +388,10 @@ public class AE2LightningTech {
 
         NeoForge.EVENT_BUS.addListener(this::onServerStarting);
         NeoForge.EVENT_BUS.addListener(this::onServerStopped);
+        if (WirelessIoPerformanceProbe.shouldMeasure()) {
+            NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, this::onServerTickPre);
+            NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, this::onBenchmarkServerTickPost);
+        }
         NeoForge.EVENT_BUS.addListener(this::onServerTickPost);
     }
 
@@ -460,6 +468,11 @@ public class AE2LightningTech {
 
         event.registerBlockEntity(
                 Capabilities.ItemHandler.BLOCK,
+                ModBlockEntities.PIGMEE_CRYSTAL_CATALYZER.get(),
+                (blockEntity, side) -> blockEntity.getAutomationInventory());
+
+        event.registerBlockEntity(
+                Capabilities.ItemHandler.BLOCK,
                 ModBlockEntities.PIGMEE_MOLECULAR_ASSEMBLER.get(),
                 (blockEntity, side) -> blockEntity.getExposedItemHandler(side));
 
@@ -500,6 +513,11 @@ public class AE2LightningTech {
         event.registerBlockEntity(
                 Capabilities.FluidHandler.BLOCK,
                 ModBlockEntities.CRYSTAL_CATALYZER.get(),
+                (blockEntity, side) -> blockEntity.getFluidHandlerCapability(side));
+
+        event.registerBlockEntity(
+                Capabilities.FluidHandler.BLOCK,
+                ModBlockEntities.PIGMEE_CRYSTAL_CATALYZER.get(),
                 (blockEntity, side) -> blockEntity.getFluidHandlerCapability(side));
 
         event.registerBlockEntity(
@@ -586,6 +604,11 @@ public class AE2LightningTech {
         event.registerBlockEntity(
                 AECapabilities.IN_WORLD_GRID_NODE_HOST,
                 ModBlockEntities.CRYSTAL_CATALYZER.get(),
+                (blockEntity, context) -> (IInWorldGridNodeHost) blockEntity);
+
+        event.registerBlockEntity(
+                AECapabilities.IN_WORLD_GRID_NODE_HOST,
+                ModBlockEntities.PIGMEE_CRYSTAL_CATALYZER.get(),
                 (blockEntity, context) -> (IInWorldGridNodeHost) blockEntity);
 
         event.registerBlockEntity(
@@ -744,6 +767,9 @@ public class AE2LightningTech {
      * so that newBlockEntity() and getBlockEntity() work correctly.
      */
     private void commonSetup(FMLCommonSetupEvent event) {
+        // AE2LT is a Thunderbolt channel consumer. Declare this before any grid
+        // can be created so the default MOD activation mode is deterministic.
+        CoreConfig.requireChannelMaxFlow();
         FrequencyApi.setProvider(new FrequencyApiBridge());
         BatchExecutor.registerBatchEligibilityRule(BatchPatternEligibility::isEligible);
         event.enqueueWork(() -> {
@@ -830,6 +856,14 @@ public class AE2LightningTech {
                     null,
                     CrystalCatalyzerBlockEntity::serverTick);
 
+            var pigmeeCrystalCatalyzerBlock = ModBlocks.PIGMEE_CRYSTAL_CATALYZER.get();
+            var pigmeeCrystalCatalyzerBeType = ModBlockEntities.PIGMEE_CRYSTAL_CATALYZER.get();
+            pigmeeCrystalCatalyzerBlock.setBlockEntity(
+                    CrystalCatalyzerBlockEntity.class,
+                    pigmeeCrystalCatalyzerBeType,
+                    null,
+                    CrystalCatalyzerBlockEntity::serverTick);
+
             var block = ModBlocks.OVERLOADED_PATTERN_PROVIDER.get();
             var beType = ModBlockEntities.OVERLOADED_PATTERN_PROVIDER.get();
             block.setBlockEntity(
@@ -863,6 +897,13 @@ public class AE2LightningTech {
                     pigmeePatternProviderBeType,
                     null,
                     PigmeePatternProviderBlockEntity::serverTick);
+
+            var pigmeeStationBlock = ModBlocks.PIGMEE_SYNTHESIS_STATION.get();
+            var pigmeeStationType = ModBlockEntities.PIGMEE_SYNTHESIS_STATION.get();
+            pigmeeStationBlock.setBlockEntity(
+                    com.moakiee.ae2lt.blockentity.PigmeeSynthesisStationBlockEntity.class,
+                    pigmeeStationType, null, null);
+            AEBaseBlockEntity.registerBlockEntityItem(pigmeeStationType, pigmeeStationBlock.asItem());
 
             var pigmeeAssemblerBlock = ModBlocks.PIGMEE_MOLECULAR_ASSEMBLER.get();
             var pigmeeAssemblerBeType = ModBlockEntities.PIGMEE_MOLECULAR_ASSEMBLER.get();
@@ -963,6 +1004,9 @@ public class AE2LightningTech {
             appeng.blockentity.AEBaseBlockEntity.registerBlockEntityItem(
                     crystalCatalyzerBeType,
                     crystalCatalyzerBlock.asItem());
+            appeng.blockentity.AEBaseBlockEntity.registerBlockEntityItem(
+                    pigmeeCrystalCatalyzerBeType,
+                    pigmeeCrystalCatalyzerBlock.asItem());
 
             setupWirelessControllerBlock(
                     ModBlocks.WIRELESS_OVERLOADED_CONTROLLER.get(),
@@ -1103,10 +1147,15 @@ public class AE2LightningTech {
     }
 
     private void onServerStopped(ServerStoppedEvent event) {
+        WirelessIoPerformanceProbe.finish(event.getServer());
         WirelessLinkRegistry.onServerStop();
         WirelessFrequencyManager.onServerStop();
         CRAFTING_CORE_REGISTRY.clear();
         com.moakiee.ae2lt.registry.ModDamageTypes.clearCache();
+    }
+
+    private void onServerTickPre(ServerTickEvent.Pre event) {
+        WirelessIoPerformanceProbe.beginServerTick();
     }
 
     private void onServerTickPost(ServerTickEvent.Post event) {
@@ -1116,6 +1165,10 @@ public class AE2LightningTech {
         if (registry != null) {
             registry.tick(event.getServer());
         }
+    }
+
+    private void onBenchmarkServerTickPost(ServerTickEvent.Post event) {
+        WirelessIoPerformanceProbe.endServerTick(event.getServer());
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})

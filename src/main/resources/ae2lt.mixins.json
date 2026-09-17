@@ -6,6 +6,7 @@
   "mixins": [
     "ServerLevelMixin",
     "AEBaseMenuManagedSlotClickMixin",
+    "PigmeeRecipeTransferStorageMixin",
     "AnnihilationPlaneFirmamentDustMixin",
     "PatternProviderLogicAccessor",
     "PatternProviderLogicMixin",
@@ -13,6 +14,7 @@
     "LivingEntityUndyingMixin",
     "LivingEntityShieldHitFeedbackMixin",
     "LivingEntityPhaseJumpMixin",
+    "LivingEntityFlightSneakMixin",
     "ServerCommonPacketListenerUndyingMixin",
     "ServerPlayerUndyingMixin",
     "ServerPlayerPhaseMovementMixin",

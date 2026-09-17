@@ -143,6 +143,8 @@ public final class Ae2LtTimeWheelCraftingCpuLogic {
     private final KeyCounter seedReturnQuota = new KeyCounter();
     private final KeyCounter retainedFinalOutputs = new KeyCounter();
     private final KeyCounter pendingRequesterOutputs = new KeyCounter();
+    @Nullable
+    private AEKey requesterOutputInFlight;
     private final PendingRequesterOutputWarning pendingRequesterOutputWarning =
             new PendingRequesterOutputWarning();
     private final LoopSeedLedgerBook loopSeedLedgers = new LoopSeedLedgerBook();
@@ -856,6 +858,11 @@ public final class Ae2LtTimeWheelCraftingCpuLogic {
         if (what == null || activeJob == null || amount <= 0) {
             return 0;
         }
+        // A requester can deliver back into this CPU's ME network. That stack has already
+        // satisfied waiting demand and must reach storage instead of being counted again.
+        if (what.equals(requesterOutputInFlight)) {
+            return 0;
+        }
 
         // Fast path: waitingKeys mirrors waitingFor's positive keys exactly, and every overload
         // acceptance path requires a pending entry (hasAnyPending). A CPU that is not waiting on
@@ -960,8 +967,7 @@ public final class Ae2LtTimeWheelCraftingCpuLogic {
                     activeJob, what, preview.claimedForRequester());
             long requesterLimit = Math.clamp(preview.claimedForRequester() - retainedRequester, 0L,
                 activeJob.remainingAmount);
-            requesterAccepted = requesterLimit > 0
-                    ? activeJob.link.insert(what, requesterLimit, type) : 0L;
+            requesterAccepted = offerToRequester(activeJob, what, requesterLimit, type);
             boolean fallsThroughToNetwork = activeJob.link.isStandalone();
             long requesterCompleted = FinalOutputProgress.completedAmount(
                     fallsThroughToNetwork, requesterLimit, requesterAccepted);
@@ -1627,11 +1633,17 @@ public final class Ae2LtTimeWheelCraftingCpuLogic {
         }
     }
 
-    private static long offerToRequester(
+    private long offerToRequester(
             TimeWheelJob activeJob, AEKey what, long amount, Actionable type) {
         if (activeJob == null || what == null || amount <= 0) return 0L;
-        long accepted = activeJob.link.insert(what, amount, type);
-        return Math.clamp(accepted, 0L, amount);
+        var previousOutput = requesterOutputInFlight;
+        requesterOutputInFlight = what;
+        try {
+            long accepted = activeJob.link.insert(what, amount, type);
+            return Math.clamp(accepted, 0L, amount);
+        } finally {
+            requesterOutputInFlight = previousOutput;
+        }
     }
 
     private void flushUnusedRetainedFinalOutputs(TimeWheelJob activeJob) {
