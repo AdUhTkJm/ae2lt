@@ -17,7 +17,7 @@ public record PlanningChoice(Kind kind, @Nullable ResourceLocation engineId) {
 
     public PlanningChoice {
         Objects.requireNonNull(kind, "kind");
-        if ((kind == Kind.ENGINE) != (engineId != null)) {
+        if ((kind == Kind.ENGINE) == (engineId == null)) {
             throw new IllegalArgumentException("ENGINE requires an id; VANILLA must not have one");
         }
     }
