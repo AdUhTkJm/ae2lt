@@ -36,6 +36,8 @@ import mezz.jei.api.registration.IRecipeCatalystRegistration;
 import mezz.jei.api.registration.IRecipeCategoryRegistration;
 import mezz.jei.api.registration.IRecipeRegistration;
 import mezz.jei.api.registration.IRecipeTransferRegistration;
+import com.moakiee.ae2lt.menu.PigmeeSynthesisStationMenu;
+import tamaized.ae2jeiintegration.integration.modules.jei.transfer.UseCraftingRecipeTransfer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
@@ -167,6 +169,7 @@ public class JEIPlugin implements IModPlugin {
         registration.addRecipeCatalyst(ModBlocks.OVERLOAD_PROCESSING_FACTORY.toStack(), OverloadProcessingCategory.TYPE);
         registration.addRecipeCatalyst(ModBlocks.TESLA_COIL.toStack(), TeslaCoilCategory.TYPE);
         registration.addRecipeCatalyst(ModBlocks.CRYSTAL_CATALYZER.toStack(), CrystalCatalyzerCategory.TYPE);
+        registration.addRecipeCatalyst(ModBlocks.PIGMEE_CRYSTAL_CATALYZER.toStack(), CrystalCatalyzerCategory.TYPE);
         registration.addRecipeCatalyst(ModBlocks.FIRMAMENT_CONVERSION_CORE.toStack(), FirmamentConversionCategory.TYPE);
         if (!isEmiLoaded()) {
             registration.addRecipeCatalyst(
@@ -184,6 +187,9 @@ public class JEIPlugin implements IModPlugin {
             return;
         }
         var helper = registration.getTransferHelper();
+        registration.addRecipeTransferHandler(new UseCraftingRecipeTransfer<>(
+                PigmeeSynthesisStationMenu.class, PigmeeSynthesisStationMenu.TYPE, helper),
+                mezz.jei.api.constants.RecipeTypes.CRAFTING);
         var visibility = registration.getJeiHelpers().getIngredientVisibility();
         registration.addUniversalRecipeTransferHandler(new EncodePatternTransferHandler<>(
                 TianshuPatternEncodingTermMenu.TYPE,
