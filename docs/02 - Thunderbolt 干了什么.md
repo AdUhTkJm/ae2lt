@@ -97,4 +97,6 @@ public interface PlanningEngineSession extends AutoCloseable {
 
 ## Planning Engine V2
 
+目前已经完整实现的算法引擎位于 `ThunderboltV2PlanningEngine`。它其实只是一个包装，为了满足算法引擎所需要的接口。算法本身在 `FastCraftingPlanner` 内实现。
+
 

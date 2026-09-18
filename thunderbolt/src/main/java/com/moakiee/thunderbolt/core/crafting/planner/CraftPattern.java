@@ -21,13 +21,8 @@ import java.util.Set;
  *
  * @param <K> item key type
  */
-public final class CraftPattern<K> {
-
-    private final K output;
-    private final long outputAmount;
-    private final List<CraftInput<K>> inputs;
-    private final List<CraftOutput<K>> byproducts;
-    private final Object source;
+public record CraftPattern<K>(K output, long outputAmount, List<CraftInput<K>> inputs, List<CraftOutput<K>> byproducts,
+                              Object source) {
 
     public CraftPattern(K output, long outputAmount, List<CraftInput<K>> inputs, Object source) {
         this(output, outputAmount, inputs, List.of(), source);
@@ -54,7 +49,7 @@ public final class CraftPattern<K> {
      * and appended once. The input keeps its remainder metadata solely for bootstrap/order proofs.</p>
      */
     private static <K> List<CraftOutput<K>> normalizeByproducts(
-            List<CraftInput<K>> inputs, List<CraftOutput<K>> declared) {
+        List<CraftInput<K>> inputs, List<CraftOutput<K>> declared) {
         List<CraftOutput<K>> result = new ArrayList<>(declared);
         Set<K> explicitKeys = new LinkedHashSet<>();
         for (CraftOutput<K> output : declared) explicitKeys.add(output.key());
@@ -69,24 +64,18 @@ public final class CraftPattern<K> {
         return List.copyOf(result);
     }
 
-    public K output() {
-        return output;
-    }
-
-    public long outputAmount() {
-        return outputAmount;
-    }
-
-    public List<CraftInput<K>> inputs() {
-        return inputs;
-    }
-
-    /** Extra outputs produced per firing besides the primary {@link #output()}. Empty if none. */
+    /**
+     * Extra outputs produced per firing besides the primary {@link #output()}. Empty if none.
+     */
+    @Override
     public List<CraftOutput<K>> byproducts() {
         return byproducts;
     }
 
-    /** Opaque handle to the originating recipe; may be {@code null} in tests. */
+    /**
+     * Opaque handle to the originating recipe; may be {@code null} in tests.
+     */
+    @Override
     public Object source() {
         return source;
     }

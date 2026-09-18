@@ -1,18 +1,6 @@
 package com.moakiee.thunderbolt.core.crafting.planner;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -158,15 +146,15 @@ public final class FastCraftingPlanner {
         @Nullable
         private final CraftPlannerV2.PlanningSession<AEKey> plannerSession;
 
-        public CalculationSession() {
-            this(SolverKind.V2);
-        }
-
         private CalculationSession(SolverKind solverKind) {
             this.solverKind = solverKind;
             this.plannerSession = solverKind == SolverKind.V2
                     ? new CraftPlannerV2.PlanningSession<>()
                     : null;
+        }
+
+        public static CalculationSession v2() {
+            return new CalculationSession(SolverKind.V2);
         }
 
         public static CalculationSession cpSat() {
@@ -240,8 +228,7 @@ public final class FastCraftingPlanner {
                                          long amount,
                                          boolean simulate) {
         return tryAttempt(
-                craftingService, networkInv, level, output, amount, simulate, null,
-                new CalculationSession());
+                craftingService, networkInv, level, output, amount, simulate, null);
     }
 
     public static FastAttempt tryAttempt(ICraftingService craftingService,
@@ -253,7 +240,7 @@ public final class FastCraftingPlanner {
                                          @Nullable CraftingStockPolicy reservedStock) {
         return tryAttempt(
                 craftingService, networkInv, level, output, amount, simulate, reservedStock,
-                new CalculationSession());
+            CalculationSession.v2());
     }
 
     public static FastAttempt tryAttempt(ICraftingService craftingService,
@@ -267,7 +254,7 @@ public final class FastCraftingPlanner {
         if (amount <= 0) {
             return FastAttempt.decline();
         }
-        Objects.requireNonNull(session, "session");
+        Objects.requireNonNull(session, "session cannot be null");
         session.bind(craftingService, networkInv, level, output, reservedStock);
 
         // Snapshot inventory the same way AE2 does: a child view that ignores the requested output
@@ -386,32 +373,28 @@ public final class FastCraftingPlanner {
         private final Set<AEKey> emittable = new HashSet<>();
     }
 
-    private static final class CompiledGraph {
-        private final CraftGraph<AEKey> graph;
-        private final boolean multiplePaths;
-        private final Map<AEKey, DurabilityChain<AEKey>> durability;
-        private final Map<AEKey, Set<IPatternDetails>> patternSources;
-        private final Set<AEKey> emittable;
-
+    private record CompiledGraph(CraftGraph<AEKey> graph, boolean multiplePaths,
+                                 Map<AEKey, DurabilityChain<AEKey>> durability,
+                                 Map<AEKey, Set<IPatternDetails>> patternSources, Set<AEKey> emittable) {
         private CompiledGraph(
-                CraftGraph<AEKey> graph,
-                boolean multiplePaths,
-                Map<AEKey, DurabilityChain<AEKey>> durability,
-                Map<AEKey, Set<IPatternDetails>> patternSources,
-                Set<AEKey> emittable) {
+            CraftGraph<AEKey> graph,
+            boolean multiplePaths,
+            Map<AEKey, DurabilityChain<AEKey>> durability,
+            Map<AEKey, Set<IPatternDetails>> patternSources,
+            Set<AEKey> emittable) {
             this.graph = graph;
             this.multiplePaths = multiplePaths;
             this.durability = Map.copyOf(durability);
             Map<AEKey, Set<IPatternDetails>> frozenSources = new HashMap<>();
             patternSources.forEach((key, value) -> frozenSources.put(
-                    key, java.util.Collections.unmodifiableSet(value)));
+                key, Collections.unmodifiableSet(value)));
             this.patternSources = Map.copyOf(frozenSources);
             this.emittable = Set.copyOf(emittable);
         }
 
         private static CompiledGraph empty() {
             return new CompiledGraph(
-                    CraftGraph.<AEKey>builder().build(), false, Map.of(), Map.of(), Set.of());
+                CraftGraph.<AEKey>builder().build(), false, Map.of(), Map.of(), Set.of());
         }
     }
 
@@ -939,10 +922,6 @@ public final class FastCraftingPlanner {
         private final Supplier<? extends Iterable<AEKey>> source;
         private final GraphExportBudget exportBudget;
         private Map<AEKey, List<AEKey>> byIdentity;
-
-        PrimaryIdentityCraftables(Supplier<? extends Iterable<AEKey>> source) {
-            this(source, null);
-        }
 
         private PrimaryIdentityCraftables(
                 Supplier<? extends Iterable<AEKey>> source,

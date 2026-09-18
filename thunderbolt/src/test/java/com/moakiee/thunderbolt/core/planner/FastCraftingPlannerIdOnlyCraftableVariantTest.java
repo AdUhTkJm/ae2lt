@@ -260,7 +260,7 @@ class FastCraftingPlannerIdOnlyCraftableVariantTest {
         });
         var service = new FakeCraftingService().pattern(TARGET, consumer).craftable(TARGET);
         var networkInv = new ChildCraftingSimulationState(new StockInventory(Map.of(BASE, 2L)));
-        var session = new FastCraftingPlanner.CalculationSession();
+        var session = FastCraftingPlanner.CalculationSession.v2();
 
         var first = FastCraftingPlanner.tryAttempt(
                 service, networkInv, null, TARGET, 1, false, null, session);
